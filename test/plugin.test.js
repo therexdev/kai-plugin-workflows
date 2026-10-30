@@ -8,7 +8,7 @@ test("original base and shared rail styles match their recorded upstream assets"
 });
 test("complete original Workflows renderer is packaged behind the reviewed bridge", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8")), html = fs.readFileSync(path.join(root, manifest.entry), "utf8");
-  assert.equal(manifest.id, "kai.workflows"); assert.deepEqual(manifest.permissions, ["models.read", "workflows.read", "workflows.write", "workflows.run"]);
+  assert.equal(manifest.id, "kai.workflows"); assert.equal(manifest.apiVersion,3); assert.equal(manifest.runtime,"native"); assert.ok(manifest.permissions.includes("native.execute")); assert.equal(manifest.service,"service/index.js");
   for (const [, asset] of html.matchAll(/(?:src|href)="([^"]+)"/g)) { assert.ok(fs.existsSync(path.join(root, asset)), asset); if (asset.endsWith(".js")) new vm.Script(fs.readFileSync(path.join(root, asset), "utf8")); }
   assert.doesNotMatch(html, /on(?:click|load|error)=|<script>/);
   const ui = fs.readFileSync(path.join(root, "workflows.js"), "utf8");

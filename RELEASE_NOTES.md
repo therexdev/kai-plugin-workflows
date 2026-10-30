@@ -1,9 +1,3 @@
-# 0.2.1
+# Workflows 0.3.0 — Foundation plugin
 
-Restores the original shared workspace grid and vertical section rail, with the original base styles. The content pane remains visible beside the rail in its separate window. Requires KAI Core 0.5.0 or later.
-
-# 0.2.0
-
-Restores the original Koinos AI feature interface and native capabilities in a separately installed plugin. Uses the existing shared profile and saved data. Requires KAI Core 0.5.0 or later.
-
-Original layouts, controls and workflows replace the earlier reduced plugin screens. Feature-specific approvals, secure credential handling, privacy settings and native service cleanup remain enforced.
+The plugin now owns its backend, assets, dependencies and encrypted data. Requires KAI Foundation schema 2 / API 3. This is a fresh profile with no import of legacy app data. Native backend installation grants full computer and application trust; renderer isolation does not sandbox native code. The complete workspace is retained. Related installed plugins communicate through explicit service contracts.

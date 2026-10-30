@@ -1,15 +1,32 @@
 {
-  "schema": 1,
-  "apiVersion": 2,
+  "schema": 2,
+  "apiVersion": 3,
   "id": "kai.workflows",
   "name": "Workflows",
-  "version": "0.2.1",
-  "description": "The original workflow builder and runtime: reusable agents, full graphs, schedules, event triggers, tools, connections, approvals and run history.",
+  "version": "0.3.0",
+  "description": "Build and run agents, graphs, schedules and event triggers with a self-contained workflow engine and private run history.",
   "entry": "index.html",
   "permissions": [
+    "native.execute",
     "models.read",
-    "workflows.read",
-    "workflows.write",
-    "workflows.run"
+    "inference.local",
+    "network.status",
+    "network.fetch",
+    "secrets.use",
+    "services.call",
+    "services.provide",
+    "desktop.navigate",
+    "desktop.external",
+    "desktop.windows"
+  ],
+  "runtime": "native",
+  "service": "service/index.js",
+  "provides": [
+    "kai.workflows"
+  ],
+  "consumes": [
+    "kai.brain",
+    "kai.connections",
+    "kai.assistant"
   ]
 }

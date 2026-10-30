@@ -24,7 +24,7 @@
       const label = document.createElement("div"); label.className = "hub-rail-label"; label.textContent = "Workflows"; rail.append(label);
       for (const [key, label] of sections) { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.dataset.section = key; button.classList.toggle("active", key === section); button.onclick = () => show(key); rail.append(button); }
       const out = document.createElement("main"); out.className = "hub-content"; shell.append(rail, out); host.append(message, shell);
-      if (state.locked) { const title = document.createElement("h2"), text = document.createElement("p"); title.textContent = "Your companion data is locked"; text.textContent = "Unlock your original OS keychain and restart KAI. Your saved data will stay intact."; out.append(title, text); return; }
+      if (state.locked) { const title = document.createElement("h2"), text = document.createElement("p"); title.textContent = "Your companion data is locked"; text.textContent = "Unlock secure OS storage and reopen Workflows. Saved plugin data has been preserved."; out.append(title, text); return; }
       window.KaiWorkflows.render(out, { state, section, manage, navigate: show });
       window.KaiI18n?.translateDOM?.(host);
     } catch (error) { notice(error); }

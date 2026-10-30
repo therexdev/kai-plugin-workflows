@@ -3,8 +3,8 @@
   "apiVersion": 2,
   "id": "kai.workflows",
   "name": "Workflows",
-  "version": "0.1.1",
-  "description": "Build reusable local agents and workflows with saved runs and human review.",
+  "version": "0.2.0",
+  "description": "The original workflow builder and runtime: reusable agents, full graphs, schedules, event triggers, tools, connections, approvals and run history.",
   "entry": "index.html",
   "permissions": [
     "models.read",

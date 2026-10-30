@@ -1,37 +1,27 @@
 # KAI Workflows
 
-A signed, sandboxed plugin for KAI Core API 2. Build reusable local agents and manual multi-step workflows; run them on installed models and inspect saved results.
+The original KAI Workflows workspace, installed separately and opened in its own window. The plugin uses the original graph editor, workflow model, styles, templates, settings, run history, and Core workflow engine.
 
-## What works
+## Workspace and behavior
 
-- Agent profiles with a name, local model and instructions. Adding a saved agent snapshots its instructions into a workflow.
-- A step builder for local AI prompts, saved agents, saved sub-workflows, human review, JSON/CSV/text parsing and output.
-- Advanced version 2 graph editing for branches, transforms, merges and splitting. Expressions run in Core's bounded QuickJS environment.
-- Native approval at review steps; cancellation; encrypted run history; JSON definition import/export.
-- Original safe local workflows remain available. Incompatible legacy workflows and legacy run history stay preserved; private Brain and connected-account data never enter the plugin renderer.
+- **My workflows**, **Run history**, **Templates**, and **Discover workflows** use the original layout and controls.
+- The full node library includes local agents and selected read tools, connected app actions, public HTTP requests, bounded JavaScript, Brain operations, branches, switches, merges, splitting, parsers, deduplication, loops, sub-workflows, approvals, and saved chat output.
+- Manual runs, schedules, source changes, app changes, and live app events retain their original configuration and approval behavior. Copilot, previews, daily suggestions, validation, import/export, undo/redo, graph positioning and run snapshots use the original implementations.
+- Existing workflows and run receipts come from the same encrypted profile. The plugin does not discard old graphs or hide historical runs because they predate the plugin.
+- Schedules and active runs belong to the enabled feature, so closing its window does not end them. Disabling/uninstalling the plugin or quitting Core stops the feature.
 
-This release runs manually while its window remains open. It does not schedule work, access Brain or accounts, execute native code, make network requests or publish rentals. Install Agent Network separately for supported service publication/discovery. Exported definitions contain prompts: review them before sharing. Sub-workflow references are local IDs and must be recreated on another installation.
+Connected actions and Brain access run through reviewed Core services and preserve their original account grants and step approvals. Their separate editor windows are available through the Brain and Connections plugins. Rentals remain separate: Agent Network copies only compatible isolated service graphs and never gives a caller private Brain, connected accounts, or wallet access.
 
-## Installation
+## Installation and security
 
-Install the signed `kai.workflows-0.1.0.kaiplugin` release asset through KAI Core → Plugins. The matching KAI Core release must include the `kai.workflows` reviewed broker and publisher pin. Source files alone are not an installable package.
+Install the signed `.kaiplugin` release through KAI Core → Plugins, using the matching Core release. This renderer uses `window.kai.call` through the publisher-pinned Workflows broker. It has no Node integration, arbitrary IPC, direct network access, or access to account tokens. Workflow run results may contain the context you explicitly selected for that workflow.
 
-## Architecture
+Original runtime limits, privacy checks, step review, uncertain-action recovery and saved-profile guards remain in force. The former reduced plugin limits and manual-only behavior have been removed. Copy/export uses native clipboard or save dialogs without changing the editor layout.
 
-`plugin/` contains browser-only HTML/CSS/JavaScript. It communicates only through `window.kai.call`. Privileged execution lives in `kai-core/electron/plugin-services/workflows.js`, backed by the shared version 2 workflow runtime. No native code or secret keys are packaged here.
+## Source and checks
 
-Permissions: `models.read`, `workflows.read`, `workflows.write`, `workflows.run`. Core authenticates the publisher, plugin ID, window, entry URL, frame and individual operation before dispatch.
+Original UI source: `therexdev/kaiapp` commit `34d17faa0526213b8fc0ac7a65aa7f2c186c6547`, `ui/workflows.js`, `ui/workflow-model.js`, and the original styles. Renderer changes are confined to the plugin shell, native clipboard bridge and dismissible notices.
 
-Bounds: 18 builder steps / 20 graph nodes, 60 total nodes including sub-workflows, four levels of nesting, two active workflows, 120 seconds per model step, 10 minutes per active run segment, 1,024 output tokens per model call. Inputs and results remain subject to the shared runtime's size limits. Native GPU and model performance depends on the installed model.
+Run `npm test` in this repository. In Core, run `node --test core/test-core/plugin-workflows.test.js` and the signed-plugin desktop smoke. Broker tests execute the real original graph engine against a synthetic profile, including Brain reads, selected app actions, code, saved chat output, schedules, native review and cancellation. They do not replace native platform or live external-service checks.
 
-## Development and verification
-
-```sh
-npm test
-# In the sibling kai-core checkout:
-node --test core/test-core/plugin-workflows.test.js
-```
-
-The repository tests validate the shipped static entry and bridge usage. Core tests exercise actual sequential inference, saved agent/sub-workflow reuse, approvals, cancellation and private legacy-data preservation using synthetic isolated profiles. These tests do not certify native keychains or real model quality.
-
-The release operator packages `plugin/` with Core's `scripts/core/pack-plugin.js` using the pinned Ed25519 publisher key kept outside the repository. Never commit a signing key.
+Packages are signed with the owner's existing publisher identity outside this repository. Never commit private signing keys.

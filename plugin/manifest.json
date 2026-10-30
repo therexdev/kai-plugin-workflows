@@ -3,7 +3,7 @@
   "apiVersion": 2,
   "id": "kai.workflows",
   "name": "Workflows",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The original workflow builder and runtime: reusable agents, full graphs, schedules, event triggers, tools, connections, approvals and run history.",
   "entry": "index.html",
   "permissions": [

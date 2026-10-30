@@ -1,6 +1,11 @@
 "use strict";
 const { test } = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 const root = path.join(__dirname, "..", "plugin");
+test("original base and shared rail styles match their recorded upstream assets", () => {
+  const provenance = JSON.parse(fs.readFileSync(path.join(__dirname, "../ORIGINAL_UI.json"), "utf8"));
+  for (const file of ["styles.css", "brain.css", "product-experience.css", "workflows.css"]) assert.equal(require("node:crypto").createHash("sha256").update(fs.readFileSync(path.join(root, file))).digest("hex"), provenance.files[file].sourceSha256, file);
+  assert.match(fs.readFileSync(path.join(root, "index.html"), "utf8"), /href="brain\.css"/);
+});
 test("complete original Workflows renderer is packaged behind the reviewed bridge", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8")), html = fs.readFileSync(path.join(root, manifest.entry), "utf8");
   assert.equal(manifest.id, "kai.workflows"); assert.deepEqual(manifest.permissions, ["models.read", "workflows.read", "workflows.write", "workflows.run"]);

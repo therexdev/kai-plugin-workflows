@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "apiVersion": 2,
+  "id": "kai.workflows",
+  "name": "Workflows",
+  "version": "0.1.0",
+  "description": "Build reusable local agents and workflows with saved runs and human review.",
+  "entry": "index.html",
+  "permissions": ["models.read", "workflows.read", "workflows.write", "workflows.run"]
+}

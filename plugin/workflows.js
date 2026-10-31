@@ -85,7 +85,7 @@
     const c = n.config, connections = data.connections.filter(x => x.enabled && (!read || x.allowSync)), conn = connections.find(x => x.id === c.connectionId), op = conn?.operations.find(o => o.id === c.operationId);
     return `${!hideConnection ? select("config.connectionId", "Connected account", [["", "Choose an account"], ...connections.map(x => [x.id, x.name])], c.connectionId) : ""}${select("config.operationId", "Action", [["", "Choose an action"], ...(conn?.operations || []).filter(o => !read || o.method === "GET").map(o => [o.id, o.name + (o.method === "GET" ? " · read" : " · review")])], c.operationId)}${op?.schema ? Object.entries(op.schema.properties || {}).slice(0, 25).map(([key, p]) => field("config.variables." + key, key.replace(/_/g, " ") + ((op.schema.required || []).includes(key) ? " *" : ""), c.variables?.[key] ?? (p.type === "object" ? {} : p.type === "array" ? [] : ""), ["object", "array"].includes(p.type) ? "json" : ["number", "integer", "boolean"].includes(p.type) ? "value" : "text", esc(String(p.description || "").slice(0, 180)))).join("") : field("config.variables", "Path variables (JSON)", c.variables || {}, "json")}${conn?.provider !== "composio" && op?.method !== "GET" ? field("config.body", "Request body (JSON)", c.body || {}, "json") : ""}`;
   }
-  function modalHTML() { const w = data.workflows.find(w => w.id === modal.id); return KaiI18n.html`<div class="wf-modal-backdrop"><section class="wf-modal" role="dialog" aria-modal="true" aria-label="Start workflow"><div class="wf-heading"><h3>${esc(w?.name || "Start workflow")}</h3>${btn("×", "closeModal")}</div><form data-wf-form="run"><label class="wf-field"><span>Run input (optional)</span><textarea name="input" rows="6" placeholder="A topic, prompt, or JSON input"></textarea></label>${(w?.graph?.nodes.find(n => n.type === "trigger")?.config.inputFields || []).length ? KaiI18n.html`<p class="hub-help">Enter JSON with these fields: ${w.graph.nodes.find(n => n.type === "trigger").config.inputFields.map(f => esc(f.name + " (" + f.type + (f.required ? ", required" : "") + ")")).join(", ")}</p>` : ""}<p class="hub-help">${modal.preview ? "Preview uses sample outputs for model, app, and memory nodes. No requests or changes are made." : "Writes and Brain changes pause for your review."}</p><button class="primary">${modal.preview ? "Start preview" : "Start run"}</button></form></section></div>`; }
+  function modalHTML() { const w = data.workflows.find(w => w.id === modal.id); return KaiI18n.html`<div class="wf-modal-backdrop"><section class="wf-modal" role="dialog" aria-modal="true" aria-label="Start workflow"><div class="wf-heading"><h3>${esc(w?.name || "Start workflow")}</h3><button type="button" class="wf-dialog-close" data-wf="closeModal" aria-label="Close dialog" title="Close">×</button></div><form data-wf-form="run"><label class="wf-field"><span>Run input (optional)</span><textarea name="input" rows="6" placeholder="A topic, prompt, or JSON input"></textarea></label>${(w?.graph?.nodes.find(n => n.type === "trigger")?.config.inputFields || []).length ? KaiI18n.html`<p class="hub-help">Enter JSON with these fields: ${w.graph.nodes.find(n => n.type === "trigger").config.inputFields.map(f => esc(f.name + " (" + f.type + (f.required ? ", required" : "") + ")")).join(", ")}</p>` : ""}<p class="hub-help">${modal.preview ? "Preview uses sample outputs for model, app, and memory nodes. No requests or changes are made." : "Writes and Brain changes pause for your review."}</p><button class="primary">${modal.preview ? "Start preview" : "Start run"}</button></form></section></div>`; }
   function paint() {
     const stage = host.querySelector(".wf-stage"); if (!stage || !draft) return;
     // CSP forbids HTML style attributes. Set validated geometry through CSSOM.
@@ -137,7 +137,7 @@
       if (action === "duplicate") { const w = clone(data.workflows.find(w => w.id === id)); delete w.id; w.name += " copy"; w.enabled = false; delete w.legacyTask; open(w); }
       if (action === "template") open(M.template(id, data.models[0]?.alias || "", data.connections.find(c => c.enabled)));
       if (action === "templates") await api.navigate("templates");
-      if (action === "back") { if (!runId && dirty() && !window.confirm("Discard unsaved workflow changes?")) return; draft = null; runId = ""; linking = null; await refresh(); draw(); }
+      if (action === "back") { if (!await canLeave()) return; draft = null; runId = ""; linking = null; await refresh(); draw(); }
       if (action === "inspector") { inspector = id; draw(); }
       if (action === "palette") host.querySelector(".wf-palette")?.classList.toggle("show");
       if (action === "add") { if (id === "trigger" && draft.graph.nodes.some(n => n.type === "trigger")) throw Error("A workflow has one trigger. Select it to change how the workflow starts."); commit(() => { const anchor = currentNode()?.position || { x: 80, y: 70 }; selected = "n" + Date.now().toString(36); const position = { x: anchor.x, y: anchor.y + 180 }; while (draft.graph.nodes.some(n => Math.abs(n.position.x - position.x) < 260 && Math.abs(n.position.y - position.y) < 160)) position.y += 180; const n = M.node(id, selected, position); if (id === "agent") n.config.model = draft.model; draft.graph.nodes.push(n); inspector = "node"; }); }
@@ -154,11 +154,11 @@
       if (action === "validate") { const report = await api.manage("workflowValidate", draft); notice(report.errors.length ? report.errors.map(e => e.message).join(" ") : "The flow is valid." + (report.nextRunAt ? " Next scheduled run: " + date(report.nextRunAt) : "") + (report.warnings.length ? " " + report.warnings.map(w => w.message).join(" ") : ""), !!report.errors.length); }
       if (["save", "saveDraft"].includes(action)) { if (invalid) throw Error(invalid); busy = true; const w = await api.manage(action === "saveDraft" ? "workflowDraft" : "workflow", draft); await refresh(); draft = M.fromLegacy(w); savedJSON = JSON.stringify(draft); draw(); notice(action === "saveDraft" ? "Draft saved. Review it before enabling or running." : "Workflow saved."); }
       if (action === "toggle") { const w = data.workflows.find(w => w.id === id); await api.manage("workflowEnabled", { id, enabled: !w.enabled }); await refresh(); draw(); }
-      if (action === "delete") { if (!window.confirm("Delete this workflow and its run history?")) return; await api.manage("removeWorkflow", { id }); await refresh(); draw(); }
+      if (action === "delete") { if (!await window.kai.dialogs.confirm("Delete this workflow and its run history?")) return; await api.manage("removeWorkflow", { id }); await refresh(); draw(); }
       if (action === "import") { const w = await api.manage("importWorkflow"); await refresh(); if (w) open(w); }
       if (action === "export") await api.manage("exportWorkflow", { id });
       if (action === "run" || action === "preview") { if (draft && !runId && dirty()) throw Error("Save the changes before running this workflow."); modal = { id, preview: action === "preview" }; draw(); host.querySelector('.wf-modal textarea')?.focus(); }
-      if (action === "closeModal") { modal = null; draw(); }
+      if (action === "closeModal") closeModal();
       if (action === "history") { draft = null; runFilter = id; await api.navigate("runs"); }
       if (["runCanvas", "selectRun"].includes(action)) { const run = data.runs.find(r => r.id === id); open(run.spec); runId = id; inspector = "runs"; draw(); fit(); }
       if (action === "resume") { await api.manage("resume", { id }); await refresh(); draw(); }
@@ -198,13 +198,30 @@
     if (viewport && !e.target.closest("button,[data-node],.wf-edge")) { e.preventDefault(); const old = { ...pan }; const move = ev => { pan = { x: old.x + ev.clientX - e.clientX, y: old.y + ev.clientY - e.clientY }; paint(); }; const up = () => { window.removeEventListener("pointermove", move); }; window.addEventListener("pointermove", move); window.addEventListener("pointerup", up, { once: true }); }
   }
   function wheel(e) { e.preventDefault(); if (e.ctrlKey || e.metaKey) { const old = zoom, rect = e.currentTarget.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top; zoom = Math.max(.18, Math.min(1.8, zoom * (e.deltaY < 0 ? 1.08 : .92))); pan = { x: x - (x - pan.x) * zoom / old, y: y - (y - pan.y) * zoom / old }; } else { pan.x -= e.deltaX; pan.y -= e.deltaY; } paint(); }
+  function closeModal() {
+    const previous = modal; modal = null; draw();
+    if (previous) [...host.querySelectorAll("[data-wf]")].find(button => button.dataset.id === previous.id && button.dataset.wf === (previous.preview ? "preview" : "run"))?.focus();
+  }
   function keydown(e) {
-    if (e.key === "Escape") { linking = null; modal = null; draw(); return; }
+    if (e.key === "Escape") { linking = null; if (modal) closeModal(); else draw(); return; }
+    if (modal && e.key === "Tab") {
+      const controls = [...(host.querySelector(".wf-modal")?.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]') || [])];
+      const first = controls[0], last = controls.at(-1);
+      if (first && e.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (first && !e.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement))) { e.preventDefault(); first.focus(); }
+      return;
+    }
     if (!draft || e.target.matches("input,textarea,select") || runId) return;
     if ((e.ctrlKey || e.metaKey) && ["z", "y"].includes(e.key.toLowerCase())) { e.preventDefault(); const action = e.key.toLowerCase() === "y" || e.shiftKey ? "redo" : "undo"; host.querySelector(`[data-wf="${action}"]`)?.click(); }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); host.querySelector('[data-wf="deleteNode"]')?.click(); }
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) && currentNode()) { e.preventDefault(); commit(() => { const p = currentNode().position; p.x = Math.max(0, p.x + (e.key === "ArrowRight" ? 20 : e.key === "ArrowLeft" ? -20 : 0)); p.y = Math.max(0, p.y + (e.key === "ArrowDown" ? 20 : e.key === "ArrowUp" ? -20 : 0)); }); }
   }
   function poll() { clearTimeout(timer); if (!host?.isConnected || host.closest('[hidden]')) return; timer = setTimeout(async () => { if (!host?.isConnected || host.closest('[hidden]')) return; if (!busy && (section === "runs" || runId || inspector === "runs" && draft)) { try { const before = JSON.stringify(data.runs); await refresh(); if (before !== JSON.stringify(data.runs) && !host.querySelector("input:focus,textarea:focus,select:focus")) { const opened = [...host.querySelectorAll("details[open]")].map(el => el.dataset.run).filter(Boolean); draw(); for (const id of opened) host.querySelector(`[data-run="${id}"]`)?.setAttribute("open", ""); } } catch { /* keep the last view */ } } poll(); }, 2000); }
-  window.KaiWorkflows = { render, canLeave: () => !dirty() || !!runId || window.confirm("Discard unsaved workflow changes?"), leave: () => { if (host) { host.onchange = null; host.oninput = null; } draft = null; runId = ""; clearTimeout(timer); }, isEditing: () => !!draft };
+  async function canLeave() {
+    if (!dirty() || runId) return true;
+    const reviewed = draft, snapshot = JSON.stringify(draft);
+    const approved = await window.kai.dialogs.confirm("Discard unsaved workflow changes?");
+    return approved === true && draft === reviewed && JSON.stringify(draft) === snapshot;
+  }
+  window.KaiWorkflows = { render, canLeave, hasUnsavedChanges: () => !!dirty() && !runId, leave: () => { if (host) { host.onchange = null; host.oninput = null; } draft = null; runId = ""; clearTimeout(timer); }, isEditing: () => !!draft };
 })();

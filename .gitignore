@@ -5,3 +5,5 @@ node_modules/
 # Signed, prebuilt runtime dependencies are part of this plugin.
 !plugin/service/node_modules/
 !plugin/service/node_modules/**
+
+/dist/kai-plugin-workflows-0.3.1.kaiplugin

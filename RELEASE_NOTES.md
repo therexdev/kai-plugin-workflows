@@ -1,3 +1,9 @@
-# Workflows 0.3.0 — Foundation plugin
+# Workflows 0.3.1
 
-The plugin now owns its backend, assets, dependencies and encrypted data. Requires KAI Foundation schema 2 / API 3. This is a fresh profile with no import of legacy app data. Native backend installation grants full computer and application trust; renderer isolation does not sandbox native code. The complete workspace is retained. Related installed plugins communicate through explicit service contracts.
+Requires **KAI Core 0.7.3 or later**. Update Core before installing this plugin update.
+
+Workflow deletion and unsaved-change reviews now use Core’s styled dialogs. Navigation waits for the decision, and cancelled reviews preserve the open draft. Workflow popup styling matches the app.
+
+Saved plugin data and feature behavior are preserved.
+
+Validation covers deferred and cancelled reviews without live account, payment or node operations. Native plugin services still require full computer/application trust; renderer UI remains sandboxed.

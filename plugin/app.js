@@ -11,9 +11,9 @@
   }
   async function show(next = section) {
     if (navigating) return;
-    if (next !== section && !window.KaiWorkflows.canLeave()) return;
     navigating = true;
     try {
+      if (next !== section && !await window.KaiWorkflows.canLeave()) return;
       state = await manage("status");
       if (next !== section) window.KaiWorkflows.leave();
       section = next;
@@ -30,6 +30,13 @@
     } catch (error) { notice(error); }
     finally { navigating = false; }
   }
-  window.addEventListener("beforeunload", event => { if (!window.KaiWorkflows.canLeave()) { event.preventDefault(); event.returnValue = false; } });
+  // beforeunload is synchronous. Keep the draft rather than treating an async
+  // review Promise as permission to discard it; Back uses the styled review.
+  window.addEventListener("beforeunload", event => {
+    if (window.KaiWorkflows.hasUnsavedChanges()) {
+      event.preventDefault(); event.returnValue = false;
+      notice("Save your workflow or use Back to discard changes before closing Workflows.");
+    }
+  });
   show();
 })();

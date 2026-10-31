@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "asset": "kai-plugin-workflows-0.3.1.kaiplugin",
+  "bytes": 15029936,
+  "sha256": "6c079a9dc84c0c271128573cbf5f6344e97b0c3680b06ef58e8159bc98ee20ca",
+  "parts": [
+    {
+      "file": "kai-plugin-workflows-0.3.1.kaiplugin.part001",
+      "bytes": 8388608,
+      "sha256": "d3ab0776b62d0355197202010288306d6f0efa92c6225c7e6989d247640f01f3"
+    },
+    {
+      "file": "kai-plugin-workflows-0.3.1.kaiplugin.part002",
+      "bytes": 6641328,
+      "sha256": "2d68de68c4a87adf8a93a37896538a75e615b9ee91edb4cf42b30c82b319b8ff"
+    }
+  ]
+}

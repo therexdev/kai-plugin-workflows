@@ -3,7 +3,7 @@
   "apiVersion": 3,
   "id": "kai.workflows",
   "name": "Workflows",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Build and run agents, graphs, schedules and event triggers with a self-contained workflow engine and private run history.",
   "entry": "index.html",
   "permissions": [

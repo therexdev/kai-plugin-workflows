@@ -1,9 +1,3 @@
-# Workflows 0.3.1
+# Workflows 0.3.2
 
-Requires **KAI Core 0.7.3 or later**. Update Core before installing this plugin update.
-
-Workflow deletion and unsaved-change reviews now use Core’s styled dialogs. Navigation waits for the decision, and cancelled reviews preserve the open draft. Workflow popup styling matches the app.
-
-Saved plugin data and feature behavior are preserved.
-
-Validation covers deferred and cancelled reviews without live account, payment or node operations. Native plugin services still require full computer/application trust; renderer UI remains sandboxed.
+The sidebar now starts at the left edge, with consistent compact spacing, rounded blue selected buttons, hover states and keyboard focus. The same navigation design is used in Brain, Connections, Workflows and Agent Network. Narrow windows wrap navigation without hiding sections. Existing data and functionality are unchanged.

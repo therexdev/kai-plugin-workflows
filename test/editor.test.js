@@ -1,4 +1,5 @@
 "use strict";
+const localeFixture = require("./i18n-fixture");
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../plugin/app.js"), "utf8");
 function fixture({ locked = false, canLeave = async () => true, hasUnsavedChanges = () => false } = {}) {
@@ -6,7 +7,7 @@ function fixture({ locked = false, canLeave = async () => true, hasUnsavedChange
   function element(tag = "div") { return { tagName: tag, children: [], dataset: {}, className: "", textContent: "", classList: { toggle() {} }, append(...items) { this.children.push(...items); }, prepend(item) { this.children.unshift(item); }, replaceChildren(...items) { this.children = items; }, setAttribute() {}, querySelector(selector) { const cls = selector.slice(1); return this.children.flatMap(c => [c, ...(c.children || [])]).find(c => c.className === cls) || null; } }; }
   const host = element(), state = { locked, available: true, models: [], workflows: [], runs: [], connections: [], sources: [], workflowState: {} };
   const window = { addEventListener(name, handler) { events[name] = handler; }, KaiWorkflows: { render: (out, api) => renders.push({ out, api }), canLeave, hasUnsavedChanges, leave() { leaves++; } }, kai: { async call(method, input) { calls.push({ method, input }); return method === "workflows.status" ? state : { saved: input }; } } };
-  vm.runInNewContext(source, { window, document: { getElementById: () => host, createElement: element }, console });
+  vm.runInNewContext(source, { KaiI18n: localeFixture,  window, document: { getElementById: () => host, createElement: element }, console });
   return { host, calls, renders, state, events, get leaves() { return leaves; } };
 }
 test("original workspace exposes all four sections and forwards complete graph settings", async () => {

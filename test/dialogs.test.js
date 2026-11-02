@@ -1,4 +1,5 @@
 "use strict";
+const localeFixture = require("./i18n-fixture");
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../plugin/workflows.js"), "utf8"), M = require("../plugin/workflow-model");
 function fixture() {
@@ -7,7 +8,7 @@ function fixture() {
   const message = { textContent: "", classList: { toggle() {} } };
   const host = { isConnected: false, innerHTML: "", querySelector: selector => selector === ".wf-notice" ? message : null, querySelectorAll: () => [] };
   const window = { KaiWorkflowModel: M, kai: { dialogs: { confirm(message) { reviews.push(message); return new Promise(resolve => { answer = resolve; }); } } } };
-  vm.runInNewContext(source, { window, setTimeout: () => 0, clearTimeout() {}, KaiI18n: { html: (parts, ...values) => typeof parts === "string" ? parts : parts.reduce((out, part, i) => out + part + (values[i] ?? ""), "") } });
+  vm.runInNewContext(source, { window, setTimeout: () => 0, clearTimeout() {}, KaiI18n: localeFixture });
   window.KaiWorkflows.render(host, { state, section: "saved", manage: async (action, input) => { calls.push({ action, input }); return action === "status" ? state : {}; } });
   const click = (action, id = "") => host.onclick({ target: { closest: selector => selector === "[data-wf]" ? { dataset: { wf: action, id } } : null } });
   const change = value => host.oninput({ target: { dataset: { field: "label" }, value } });

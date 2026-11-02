@@ -1,9 +1,10 @@
 {
   "name": "kai-plugin-workflows",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "license": "MIT",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "build:locales": "node scripts/build-locales.js"
   }
 }

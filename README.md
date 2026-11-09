@@ -45,3 +45,5 @@ This plugin follows the language saved in KAI Core Settings and applies changes 
 [Interface language and translation guide](docs/localization.md).
 
 Workflows 0.3.7 uses Core 0.7.23 credit consent: **Allow for Workflow** authorizes the rest of the current run, and **Allow Always** permits future runs. Manage ongoing permissions in **Core Settings → Access**. Granted runs can continue in the background; without a grant, unattended network steps pause for review.
+
+Workflows 0.3.8 with Core 0.7.24 refreshes and reselects automatic network models when Core confirms no generation was dispatched. It tries at most three selections and preserves explicit model choices, partial answers and credit recovery. Update Core first, then Workflows; existing article workflow imports need no changes.

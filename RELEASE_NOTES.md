@@ -1,4 +1,12 @@
-# Workflows 0.3.8
+# Workflows 0.3.9
+
+Fixes article agents timing out at 180 seconds while assembling several network replies. The configured model timeout now applies separately to each network reply, after the request reaches the front of the credit queue. Continuations have a 15-minute total response limit and keep the existing token and continuation budgets.
+
+Individual reply timeouts now identify the actual time limit in run history. Completed parts remain in Network results; timed-out or uncertain credit requests are never automatically retried, and the queue stays occupied until Core settles the request. The editor explains the timeout behavior in all supported languages. Local model deadlines are unchanged.
+
+Requires Core 0.7.24. Update Workflows in the in-app catalog after any active run finishes or is cancelled. Existing article workflow imports need no edits; run them again after the update.
+
+## Previous release: 0.3.8
 
 Automatic research, outline and writing models now refresh eligibility and try another suitable online model when Core confirms the previous selection failed before generation started. Selection is bounded to three attempts, recalculates the new model's output limit, and retains the same workflow credit permission.
 

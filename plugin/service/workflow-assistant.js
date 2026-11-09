@@ -1,15 +1,16 @@
 "use strict";
 const { CompanionError } = require("./companion-store");
 const Model = require("../workflow-model");
+const { networkModel } = require("./workflow-inference");
 function jsonReply(reply) {
   try { return JSON.parse(String(reply).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
-  catch { throw new CompanionError("KAI did not return a complete workflow. Try a shorter request or a larger local model."); }
+  catch { throw new CompanionError("KAI did not return a complete workflow. Try a shorter request or another model."); }
 }
 class WorkflowAssistant {
   constructor(workflows) { this.workflows = workflows; this.store = workflows.store; this.busy = false; this.controller = null; }
   configure(input) {
     const enabled = input.enabled === true, model = String(input.model || "");
-    if (enabled && !this.workflows.models().some(m => m.alias === model && m.status === "ready") || /^(desktop:|koinos-network)/.test(model)) throw new CompanionError("Choose an installed local model for suggestions.");
+    if (enabled && !networkModel(model) && !this.workflows.models().some(m => m.alias === model && m.status === "ready")) throw new CompanionError("Choose an installed local model or a KAI network model for suggestions.");
     this.controller?.abort();
     return this.store.change(d => { d.workflowState ||= {}; d.workflowState.discovery = { enabled, model, includeBrain: input.includeBrain === true, nextAt: Date.now() + 60000 }; });
   }
@@ -19,14 +20,14 @@ class WorkflowAssistant {
     const controller = this.controller = new AbortController();
     this.store.change(d => { d.workflowState.discovery.nextAt = now + 86400000; });
     try { await this.ask(settings, controller.signal, true); this.store.change(d => { d.workflowState.discovery.lastAt = now; d.workflowState.discovery.error = null; }); }
-    catch (e) { if (!controller.signal.aborted) this.store.change(d => { d.workflowState.discovery.error = e instanceof CompanionError ? e.message : "Suggestions paused. Check your local model."; }); }
+    catch (e) { if (!controller.signal.aborted) this.store.change(d => { d.workflowState.discovery.error = e instanceof CompanionError ? e.message : "Suggestions paused. Check the selected model."; }); }
     finally { if (this.controller === controller) this.controller = null; }
   }
   stop() { this.controller?.abort(); }
   async ask(input, signal, discover = false) {
     if (this.busy) throw new CompanionError("KAI is already preparing a workflow suggestion.");
     const model = input.model;
-    if (!model || /^(desktop:|koinos-network)/.test(model) || !this.workflows.models().some(m => m.alias === model && m.status === "ready")) throw new CompanionError("Choose an installed local model for workflow assistance.");
+    if (!networkModel(model) && (!model || model.startsWith("desktop:") || !this.workflows.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("Choose an installed local model or a KAI network model for workflow assistance.");
     signal = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(180000)]);
     this.busy = true;
     try {

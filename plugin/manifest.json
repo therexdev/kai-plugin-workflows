@@ -3,13 +3,14 @@
   "apiVersion": 3,
   "id": "kai.workflows",
   "name": "Workflows",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Build and run agents, graphs, schedules and event triggers with a self-contained workflow engine and private run history.",
   "entry": "index.html",
   "permissions": [
     "native.execute",
     "models.read",
     "inference.local",
+    "inference.network",
     "network.status",
     "network.fetch",
     "secrets.use",
@@ -17,7 +18,8 @@
     "services.provide",
     "desktop.navigate",
     "desktop.external",
-    "desktop.windows"
+    "desktop.windows",
+    "wallet.authorize"
   ],
   "runtime": "native",
   "service": "service/index.js",

@@ -6,7 +6,7 @@
   const clone = x => JSON.parse(JSON.stringify(x));
   const catalog = [
     ["trigger", "Trigger", "Start", "Start manually, on a schedule, or when a source changes.", "⚡"],
-    ["agent", "Agent", "Actions", "Ask a local model to reason, write, or use selected read tools.", "✦"],
+    ["agent", "Agent", "Actions", "Ask a local or KAI network model to reason, write, or use selected read tools.", "✦"],
     ["tool_call", "App action", "Actions", "Run an action from a connected app or custom API.", "↗"],
     ["http_request", "HTTP request", "Actions", "Fetch a public endpoint or use a saved API connection.", "◎"],
     ["code", "Code", "Actions", "Transform data with isolated JavaScript.", "{}"],
@@ -43,8 +43,22 @@
   }
   // Exchange behavior, not source code: explicitly translate the documented OpenHuman wire format.
   function importDocument(raw) {
-    const w = clone(raw.flow || raw), g = w.graph || (w.nodes ? w : null);
-    if (!g) return fromLegacy(w);
+    const object = value => !!value && typeof value === "object" && !Array.isArray(value);
+    if (!object(raw)) throw Error("Choose a JSON object containing one workflow.");
+    if (raw.format !== undefined && (raw.format !== "kai.workflow" || raw.version !== 1)) throw Error("Unsupported workflow format or version. Update Workflows before importing this file.");
+    if (raw.format === "kai.workflow" && !object(raw.workflow)) throw Error("The workflow document is missing its workflow object.");
+    if (raw.workflow !== undefined && raw.format === undefined && (raw.schema !== 1 || raw.runtimeVersion !== 2)) throw Error("Unsupported workflow format or version. Update Workflows before importing this file.");
+    const w = clone(raw.workflow || raw.flow || raw), g = w.graph || (w.nodes ? w : null);
+    if (!object(w)) throw Error("Choose a JSON object containing one workflow.");
+    if (!g) {
+      if (!Array.isArray(w.steps) || !w.steps.length || w.steps.some(s => !object(s) || typeof s.type !== "string")) throw Error("The document does not contain a workflow graph or legacy steps.");
+      return importDocument(fromLegacy(w));
+    }
+    if (!object(g) || !Array.isArray(g.nodes) || !Array.isArray(g.edges)) throw Error("Workflow graphs need nodes and edges arrays.");
+    if (g.version !== undefined && g.version !== 2) throw Error("Unsupported workflow graph version.");
+    if (!g.nodes.length || g.nodes.length > 60 || g.edges.length > 160) throw Error("Use 1–60 nodes and at most 160 connections.");
+    if (g.nodes.some(n => !object(n) || typeof n.id !== "string" || !object(n.config))) throw Error("Each node needs an ID and a settings object.");
+    if (g.edges.some(e => !object(e))) throw Error("Each connection must be an object.");
     if (g.nodes?.some(n => n.kind)) {
       const nodes = g.nodes.map((n, i) => {
         const c = { ...(n.config || {}) }, type = n.kind;
@@ -55,9 +69,37 @@
         if (type === "condition" && c.field && !c.expression) c.expression = "=item[" + JSON.stringify(c.field) + "]";
         return node(type, n.id, n.position || { x: 80, y: 80 + i * 150 }, c, n.name);
       });
-      return { name: w.name || g.name || "Imported workflow", description: w.description || "", enabled: false, graph: { version: 2, nodes, edges: (g.edges || []).map(e => edge(e.from_node, e.to_node, e.from_port || "main", e.to_port || "main")) } };
+      return importDocument({ name: w.name || g.name || "Imported workflow", description: w.description || "", model: w.model || "", enabled: false, graph: { version: 2, nodes, edges: g.edges.map(e => edge(e.from_node, e.to_node, e.from_port || "main", e.to_port || "main")) } });
     }
-    return { ...w, graph: g, enabled: false };
+    for (const n of g.nodes) {
+      if (!types.includes(n.type)) throw Error("Unsupported node: " + n.type);
+      const c = n.config;
+      for (const key of ["model", "prompt", "instructions", "profile", "source", "language", "kind", "operation", "connectionId", "operationId", "workflowId", "sourceId", "triggerSlug", "expression", "onError", "execution"]) {
+        if (c[key] !== undefined && typeof c[key] !== "string") throw Error("Node setting must be text: " + key);
+      }
+      if (c.tools !== undefined && (!Array.isArray(c.tools) || c.tools.some(t => !object(t) || typeof t.connectionId !== "string" || typeof t.operationId !== "string"))) throw Error("Agent tools need connection and action IDs.");
+      if (c.cases !== undefined && (!Array.isArray(c.cases) || c.cases.some(p => typeof p !== "string"))) throw Error("Switch cases must be an array of names.");
+      if (c.inputFields !== undefined && (!Array.isArray(c.inputFields) || c.inputFields.some(f => !object(f) || typeof f.name !== "string" || typeof f.type !== "string"))) throw Error("Input fields need names and types.");
+      if (c.schedule !== undefined && !object(c.schedule)) throw Error("A schedule must be an object.");
+      n.config = { ...defaults(n.type), ...c };
+      n.label ||= meta(n.type).name;
+      n.position = { x: Math.max(0, Math.min(6000, Number(n.position?.x) || 0)), y: Math.max(0, Math.min(12000, Number(n.position?.y) || 0)) };
+    }
+    if (g.edges.some(e => typeof e.from !== "string" || typeof e.to !== "string" || (e.port !== undefined && typeof e.port !== "string") || (e.input !== undefined && typeof e.input !== "string"))) throw Error("Connections need source and destination node IDs.");
+    const graph = { version: 2, nodes: g.nodes, edges: g.edges.map(e => edge(e.from, e.to, e.port || "main", e.input || "main")) };
+    const report = validateGraph(graph);
+    const structural = report.errors.filter(e => /unique letter|missing node|Unknown output port|duplicate connection|incoming connections|exactly one trigger|Close cycles/.test(e.message));
+    if (structural.length) throw Error(structural[0].message);
+    return { ...w, graph, enabled: false };
+  }
+  // Definitions only: runtime history, watch cursors, approvals and event registrations stay local.
+  function exportDocument(input) {
+    const w = importDocument(input);
+    const graph = { version: 2, nodes: w.graph.nodes.map(n => {
+      const config = clone(n.config); delete config.triggerId; delete config.eventBinding;
+      return { id: n.id, type: n.type, label: n.label || meta(n.type).name, position: clone(n.position || { x: 80, y: 80 }), config };
+    }), edges: w.graph.edges.map(e => edge(e.from, e.to, e.port, e.input)) };
+    return { format: "kai.workflow", version: 1, workflow: { name: w.name || "Imported workflow", description: w.description || "", model: w.model || "", enabled: false, graph } };
   }
   function validateGraph(g) {
     const errors = [], warnings = [], error = (message, nodeId) => errors.push({ message, nodeId });
@@ -102,5 +144,5 @@
     return { name, model, enabled: false, description: "", graph: { version: 2, nodes, edges } };
   }
   const templates = [["briefing", "Project briefing", "Search your Brain and prepare a useful briefing."], ["review", "Weekly goal review", "Review context and remember approved next steps."], ["digest", "Daily digest to an app", "Summarize context on a schedule and send it to a connection."], ["scrape", "Scheduled source to Brain", "Read a source, summarize it, and remember the reviewed result."], ["event", "App change to conditional action", "Watch a read action, triage changes, and follow a branch."], ["api", "Fetch and parse an API", "Read structured data and use it in later steps."], ["ask", "Ask KAI", "A simple manual prompt with a saved result."], ["research", "Plan and write a research brief", "Use separate agents and models to plan and draft."], ["loop", "Review and refine", "Improve a draft through a bounded feedback loop."]];
-  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, validateGraph, template, templates, clone };
+  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone };
 });

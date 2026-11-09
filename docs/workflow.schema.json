@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KAI workflow exchange document",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "workflow"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "kai.workflow"
+    },
+    "version": {
+      "const": 1
+    },
+    "workflow": {
+      "type": "object",
+      "required": [
+        "name",
+        "graph"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "enabled": {
+          "const": false
+        },
+        "graph": {
+          "$ref": "#/$defs/graph"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "graph": {
+      "type": "object",
+      "required": [
+        "version",
+        "nodes",
+        "edges"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 60,
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "maxItems": 160,
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        }
+      }
+    },
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "config"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "enum": [
+            "trigger",
+            "agent",
+            "tool_call",
+            "http_request",
+            "code",
+            "sub_workflow",
+            "memory",
+            "approval",
+            "condition",
+            "switch",
+            "merge",
+            "split_out",
+            "transform",
+            "output_parser",
+            "dedup",
+            "loop",
+            "output"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "position": {
+          "type": "object",
+          "required": [
+            "x",
+            "y"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 6000
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 12000
+            }
+          }
+        },
+        "config": {
+          "type": "object",
+          "description": "Node-specific settings; see workflow-model.js defaults and the sharing guide."
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "to": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "port": {
+          "type": "string"
+        },
+        "input": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -10,3 +10,12 @@ for (const target of targets) {
   if (process.argv.includes("--check")) { if (!fs.existsSync(filename) || fs.readFileSync(filename,"utf8") !== output) throw Error("Rebuild locale catalogs: " + target); }
   else { fs.mkdirSync(path.dirname(filename), {recursive:true}); fs.writeFileSync(filename, output); }
 }
+// The native network-cost review uses the same translations as the renderer.
+const reviewKeys = ["Use KAI network for this step?", "Estimated maximum: {0} credits ({1} free, {2} purchased).", "This sends the step's input and any selected tool results to a KAI network provider. Each request requires review.", "Input preview:"];
+const nativeOutput = JSON.stringify(Object.fromEntries(Object.entries(source).map(([language, entries]) => [language, Object.fromEntries(reviewKeys.map(key => {
+  if (!entries[key]) throw Error("Missing network review translation: " + language + " " + key);
+  return [key, entries[key]];
+}))])), null, 2) + "\n";
+const nativeFile = path.join(root, "plugin/service/network-locales.json");
+if (process.argv.includes("--check")) { if (!fs.existsSync(nativeFile) || fs.readFileSync(nativeFile, "utf8") !== nativeOutput) throw Error("Rebuild native network review catalogs"); }
+else fs.writeFileSync(nativeFile, nativeOutput);

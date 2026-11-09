@@ -1,6 +1,7 @@
 "use strict";
 const { CompanionError, copy, id, text } = require("./companion-store");
 const { computeNext } = require("./lib/tasks");
+const networkModel = model => typeof model === "string" && /^koinos-network:[a-zA-Z0-9._-]{1,100}$/.test(model);
 const TYPES = ["brain_search", "prompt", "connection", "condition", "approval", "remember", "output"];
 function validate(input) {
   if (!Array.isArray(input.steps) || !input.steps.length || input.steps.length > 20) throw new CompanionError("A workflow needs 1–20 steps.");
@@ -22,7 +23,7 @@ function validate(input) {
     return step;
   });
   const model = String(input.model || "").slice(0, 200);
-  if (steps.some(s => s.type === "prompt") && (!model || model.startsWith("desktop:") || model.startsWith("koinos-network"))) throw new CompanionError("Choose an installed local model for workflow reasoning. Private provider keys are reserved for attended chat.");
+  if (steps.some(s => s.type === "prompt") && (!model || model.startsWith("desktop:") || model.startsWith("koinos-network") && !networkModel(model))) throw new CompanionError("Choose an installed local model or a KAI network model for workflow reasoning.");
   return { name: text(input.name, 100, "Workflow name"), description: String(input.description || "").slice(0, 1000), model, schedule, steps };
 }
 function fill(value, run) {
@@ -42,7 +43,7 @@ class CompanionWorkflows {
   }
   save(input, { draft = false } = {}) {
     const spec = validate(input);
-    if (spec.steps.some(s => s.type === "prompt") && !this.models().some(m => m.alias === spec.model && m.status === "ready")) throw new CompanionError("Install the selected workflow model first.");
+    if (spec.steps.some(s => s.type === "prompt") && !networkModel(spec.model) && !this.models().some(m => m.alias === spec.model && m.status === "ready")) throw new CompanionError("Install the selected workflow model first.");
     for (const s of spec.steps.filter(s => s.type === "connection")) if (!this.store.data.connections.some(c => c.id === s.connectionId && c.operations.some(o => o.id === s.operationId))) throw new CompanionError("A workflow step refers to a missing connection or operation.");
     return this.store.change(d => {
       const old = input.id ? d.workflows.find(w => w.id === input.id) : null;
@@ -96,7 +97,7 @@ class CompanionWorkflows {
       const s = r.spec.steps[r.index];
       let request;
       if (s.type === "connection") request = await this.connections.prepare(s.connectionId, s.operationId, fill(s.variables, r), fill(s.body, r));
-      const needsApproval = ["remember", "approval"].includes(s.type) || (request && (request.method !== "GET" || !this.store.data.connections.find(c => c.id === s.connectionId)?.allowSync));
+      const needsApproval = (s.type === "prompt" && networkModel(r.spec.model) && !this.canReviewNetwork?.()) || ["remember", "approval"].includes(s.type) || (request && (request.method !== "GET" || !this.store.data.connections.find(c => c.id === s.connectionId)?.allowSync));
       if (needsApproval && !approved) {
         this.patch(key, x => { x.status = "waiting"; x.pending = request || { name: s.label, text: fill(s.text, r) }; }); return;
       }
@@ -107,8 +108,8 @@ class CompanionWorkflows {
       let output = r.previous, stop = false;
       if (s.type === "brain_search") output = (await this.store.search(fill(s.text || "{{input}}", r), 8)).map(n => `[${n.title}] ${n.text}`).join("\n\n").slice(0, 12000) || "No matching Brain notes.";
       if (s.type === "prompt") {
-        if (!this.models().some(m => m.alias === r.spec.model && m.status === "ready")) throw new CompanionError("Workflow model is not installed and ready.");
-        output = await this.runLocal({ model: r.spec.model, prompt: fill(s.text, r), signal });
+        if (!networkModel(r.spec.model) && !this.models().some(m => m.alias === r.spec.model && m.status === "ready")) throw new CompanionError("Workflow model is not installed and ready.");
+        output = await this.runLocal({ model: r.spec.model, prompt: fill(s.text, r), runId: key, signal });
       }
       if (s.type === "connection") output = await this.connections.execute(request, signal);
       if (s.type === "condition") { stop = !r.previous.toLowerCase().includes(fill(s.text, r).toLowerCase()); if (stop) output = "Condition did not match. Remaining steps skipped."; }

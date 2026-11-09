@@ -1,6 +1,9 @@
 /* The original feature workspace fills its separate plugin window. */
 html,body{width:100%;height:100%;margin:0}body{display:block;overflow:hidden}.plugin-workspace{width:100%;height:100%;overflow:auto}.view.companion-hub{height:100%;min-height:100%}.companion-hub .hub-rail{min-height:100vh}.hub-notice:empty{display:none}
 
+/* Keep fixed dialogs anchored to the window, not the animated page's full height. */
+.view.companion-hub:not([hidden]){animation:none}
+
 /* Run forms use the same pearl surfaces, type and actions as Core reviews. */
 .wf-modal-backdrop{background:#18304d55;backdrop-filter:blur(3px)}
 .wf-modal{background:#f4f7fd;color:#14284e;border:1px solid #dce5f2;border-radius:18px;padding:0;width:min(620px,100%);font:14px/1.6 Inter,"Segoe UI",Arial,sans-serif;box-shadow:0 22px 70px #122c5130}
@@ -15,3 +18,9 @@ html,body{width:100%;height:100%;margin:0}body{display:block;overflow:hidden}.pl
 .wf-modal .wf-dialog-close:hover{background:#edf4ff;color:#155eef}
 .wf-modal button:focus-visible,.wf-modal textarea:focus-visible{outline:2px solid #155eef;outline-offset:3px}
 @media(max-width:480px){.wf-modal .wf-heading,.wf-modal form{padding:18px}}
+
+/* Transfer controls wrap alongside Run without hiding at narrow widths. */
+.wf-row-actions,.wf-builder-actions{flex-wrap:wrap}
+.wf-modal #wf-import-json{font-family:ui-monospace,Consolas,monospace;min-height:160px;max-height:40vh}
+.wf-modal [data-wf="importFile"]{margin-bottom:16px}
+.wf-import-error:empty{display:none}

@@ -2,6 +2,7 @@
 const crypto = require("crypto");
 const { CompanionError, copy, id, text } = require("./companion-store");
 const Model = require("../workflow-model");
+const networkModel = model => typeof model === "string" && /^koinos-network:[a-zA-Z0-9._-]{1,100}$/.test(model);
 const V = require("./workflow-values"), { next } = require("./workflow-schedules");
 const { assertPublicTarget, publicPageRequest } = require("./lib/websearch");
 const WAIT = Symbol("waiting"), live = r => ["running", "waiting", "interrupted"].includes(r.status);
@@ -30,7 +31,7 @@ function normalize(input, draft = false) {
     n.config.onError = ["stop", "continue", "route"].includes(n.config.onError) ? n.config.onError : "stop";
     n.config.retries = Math.max(0, Math.min(2, Number(n.config.retries) || 0));
     n.config.timeoutSeconds = Math.max(5, Math.min(180, Number(n.config.timeoutSeconds) || 120));
-    if (n.type === "agent" && (n.config.model || input.model || "").match(/^(desktop:|koinos-network)/)) throw new CompanionError("Workflow reasoning requires an installed local model.");
+    if (n.type === "agent" && (n.config.model || input.model || "").startsWith("desktop:")) throw new CompanionError("Choose an installed local model or a KAI network model.");
     if (n.type === "memory" && !["search", "recall", "people", "goals", "remember", "forget"].includes(n.config.operation)) throw new CompanionError("Choose a supported Brain operation.");
     if (!draft && n.type === "http_request" && !n.config.connectionId) {
       let u; try { u = new URL(n.config.url); } catch { throw new CompanionError("Enter a public HTTPS URL."); }
@@ -45,14 +46,14 @@ function normalize(input, draft = false) {
   return { name: text(input.name, 100, "Workflow name"), description: String(input.description || "").slice(0, 1000), model: String(input.model || "").slice(0, 200), graph, schedule, steps: graph.nodes.filter(n => n.type !== "trigger").map(n => ({ type: n.type, label: n.label })) };
 }
 function createClass(Base) { return class GraphWorkflows extends Base {
-  constructor(options) { super(options); Object.assign(this, { privacyMode: options.privacyMode || (() => "local-only"), fetch: options.fetchImpl || fetch, lookup: options.lookup, chats: options.chats }); this.polling = false; this.watchController = new AbortController(); }
+  constructor(options) { super(options); Object.assign(this, { privacyMode: options.privacyMode || (() => "local-only"), fetch: options.fetchImpl || fetch, lookup: options.lookup, chats: options.chats, canReviewNetwork: options.canReviewNetwork || (() => false) }); this.polling = false; this.watchController = new AbortController(); }
   checkReferences(spec, { draft = false } = {}) {
     if (draft) return;
     for (const n of spec.graph.nodes) {
       const c = n.config;
       if (n.type === "agent") {
         const model = c.model || spec.model;
-        if (!model || /^(desktop:|koinos-network)/.test(model) || !this.models().some(m => m.alias === model && m.status === "ready")) throw new CompanionError(n.label + ": choose an installed local model.");
+        if (!networkModel(model) && (!model || model.startsWith("desktop:") || !this.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError(n.label + ": choose an installed local model or a KAI network model.");
         for (const tool of c.tools || []) { const connection = this.store.data.connections.find(x => x.id === tool.connectionId); if (!connection?.allowSync || !connection.operations.some(o => o.id === tool.operationId && o.method === "GET")) throw new CompanionError("Agent tools must be selected read actions with background reads enabled."); }
       }
       if (c.connectionId && !["trigger", "agent"].includes(n.type)) {
@@ -171,7 +172,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     const batches = perItem ? values.map(v => [v]) : [values];
     for (let i = this.state(key, frameId, n.id).cursor; i < batches.length; i++) {
       signal.throwIfAborted(); const batch = batches[i], scope = { ...baseScope, item: batch[0], items: batch }, token = `${frameId}/${n.id}/${i}`;
-      const run = this.get(key), prepared = run.dryRun ? { approval: false, sideEffect: false } : await this.prepareNode(key, n, scope, signal);
+      const run = this.get(key), prepared = run.dryRun ? { approval: false, sideEffect: false } : await this.prepareNode(key, n, scope, signal, frameId);
       if (prepared.approval && !run.dryRun && !await this.gate(key, token, prepared.detail, signal)) { this.patchNode(key, frameId, n.id, s => { s.status = "waiting"; }); return WAIT; }
       this.patchNode(key, frameId, n.id, s => { s.status = "running"; });
       const composite = ["loop", "sub_workflow"].includes(n.type);
@@ -195,7 +196,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       this.patchNode(key, frameId, n.id, s => { for (const [port, list] of Object.entries(outputs)) (s.outputs[port] ||= []).push(...V.items(list)); s.cursor = i + 1; s.turns = []; s.status = i + 1 === batches.length ? "completed" : "running"; });
     }
   }
-  async prepareNode(key, n, scope, signal) {
+  async prepareNode(key, n, scope, signal, frameId) {
     const c = n.config; let request, detail, sideEffect = false, approval = c.requireApproval === true;
     if (n.type === "tool_call" || n.type === "http_request" && c.connectionId) {
       request = await this.connections.prepare(c.connectionId, c.operationId, await V.resolve(c.variables || {}, scope, signal), await V.resolve(c.body || {}, scope, signal));
@@ -206,6 +207,11 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       request = { url, method: c.method || "GET", headers: await V.resolve(c.headers || {}, scope, signal), body: await V.resolve(c.body || {}, scope, signal) }; sideEffect = request.method !== "GET"; approval ||= sideEffect; detail = { name: n.label, ...request };
     } else if (n.type === "memory" && ["remember", "forget"].includes(c.operation)) { sideEffect = true; approval = true; detail = { name: n.label, operation: c.operation, title: await V.resolve(c.title || n.label, scope, signal), value: await V.resolve(c.value || "{{previous}}", scope, signal), noteId: c.noteId || "" }; }
     else if (n.type === "approval") { approval = true; detail = { name: n.label, text: await V.resolve(c.text || "{{previous}}", scope, signal) }; }
+    if (n.type === "agent" && networkModel(c.model || this.get(key).frames[frameId].model)) {
+      sideEffect = true; // Never automatically retry a possibly charged request.
+      approval ||= !this.canReviewNetwork();
+      detail = { name: n.label, model: c.model || this.get(key).frames[frameId].model, message: "Open Workflows and resume to review network credits before this step." };
+    }
     if (approval && !detail) detail = { name: n.label, input: scope.items };
     if (detail && JSON.stringify(detail).length > 19000) throw new CompanionError("Action exceeds the review limit. Reduce the input before this step.");
     return { request, detail, sideEffect, approval };
@@ -216,12 +222,12 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     if (dry && ["agent", "tool_call", "http_request", "memory", "approval"].includes(n.type)) return { [n.type === "approval" ? "approved" : "main"]: V.items(c.sampleOutput ?? { text: "Preview: " + n.label, json: { preview: true }, preview: true }) };
     if (n.type === "trigger") return main(scope.items);
     if (n.type === "agent") {
-      const model = c.model || this.get(key).frames[frameId].model; if (/^(desktop:|koinos-network)/.test(model) || !this.models().some(m => m.alias === model && m.status === "ready")) throw new CompanionError("The local model is not installed and ready.");
+      const model = c.model || this.get(key).frames[frameId].model; if (!networkModel(model) && (model.startsWith("desktop:") || !this.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("The local model is not installed and ready.");
       const max = Math.max(1, Math.min(6, Number(c.maxTurns) || 3)), tools = (c.tools || []).slice(0, 8);
       let turns = state().turns || [], answer;
       for (let turn = turns.length; turn < max; turn++) {
         const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`.slice(0, 16000);
-        answer = await this.runLocal({ model, prompt, signal: AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
+        answer = await this.runLocal({ model, prompt, runId: key, signal: AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
         let call; try { call = JSON.parse(answer).tool; } catch { /* final prose */ }
         if (!call) return main(V.envelope(answer));
         const selected = tools[call.index]; if (!selected || turn + 1 >= max) throw new CompanionError("Agent reached its selected-tool or turn limit.");

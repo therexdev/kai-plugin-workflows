@@ -1,4 +1,14 @@
-# Workflows 0.3.5
+# Workflows 0.3.6
+
+Adds an importable researched-article workflow. Supply an article topic and a target of 200–5000 words. A researcher maps relevant topics, an outline agent creates headings and requirements, and a separate researcher and writer handle each section. The final output contains the article, source URLs, outline and actual word counts. There is no QA agent or clarification round.
+
+Automatic network choices refresh Core availability before every agent and apply different preferences for research, outlining and prose. The concrete model is shown in credit review and saved with the result. Public web research reads source excerpts and fails when no page is readable. Local-Only, cancellation, public-address checks and existing credit review remain enforced; no new permissions are requested.
+
+Bounded, separately reviewed continuations support Core's short reply limits without silently presenting a truncated article. Full output text remains visible in run history. Includes translations, import/graph validation and synthetic end-to-end coverage through 5000 words. Model rankings are task heuristics; prose quality and exact word count are not guaranteed without an editing pass. Requires Core 0.7.17 or newer.
+
+## Previous release
+
+Workflows 0.3.5
 
 Import a workflow from a JSON file or paste its JSON directly from chat. Imported workflows open as new disabled drafts, with unique identities and names; review the nodes and selected model/connections before saving and running.
 

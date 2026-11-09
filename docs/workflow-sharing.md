@@ -83,6 +83,8 @@ For compatibility, the importer also accepts older plain KAI workflow definition
 
 ## Starter workflows
 
+Workflows **0.3.6** also includes [Researched article](../examples/researched-article.workflow.json). Give it `{"topic":"Your article topic","word_count":1800}`. It fetches web evidence and uses automatic task-specific network routing for topic research, outlining, and a researcher/writer pair per section. See [setup, credit reviews and limits](article-workflow.md).
+
 | File | Input to paste when running | Result |
 | --- | --- | --- |
 | [KAI release notes](../examples/kai-release-notes.workflow.json) | Commit/change notes, release status, test results and update steps | A public update distinguishing released work from pending work |

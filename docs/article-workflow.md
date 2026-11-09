@@ -6,7 +6,7 @@ Requires **Workflows 0.3.6** and Core 0.7.17+. Import `examples/researched-artic
 {"topic":"How community solar works for renters","word_count":1800}
 ```
 
-The only required inputs are `topic` (1–240 characters) and `word_count` (200–5000). There are no clarification questions or QA/review agents. Keep Workflows visible for Core's existing network credit reviews.
+The only required inputs are `topic` (1–240 characters) and `word_count` (200–5000). There are no clarification questions or QA/review agents. In Core 0.7.23 or newer, choose **Allow for Workflow** at the first network credit prompt to authorize the remaining article run, or **Allow Always** for future Workflows credit use. Revoke ongoing access in **Core Settings → Access**.
 
 1. Public web research searches for the topic and reads up to four source excerpts.
 2. A topic researcher identifies relevant topics, questions and evidence gaps.
@@ -22,7 +22,7 @@ The new model choices are `koinos-network:auto-research`, `koinos-network:auto-o
 
 The selected concrete model appears in the credit review and saved Network results. If it becomes unavailable before dispatch, Core stops the request. Workflows does not retry a possibly charged failure automatically.
 
-Core may limit replies to 256 tokens. This workflow enables bounded continuation requests for an outline, brief or section that ends at a token limit. Every continuation has its own credit review, preserves the selected model, and is saved before acknowledgment. It stops on the total token budget, continuation limit, cancellation or error; partial paid responses remain in Network results. Continuation limits are not authorization for unattended spending. Expect more reviews when Core permits only short replies.
+Core may limit replies to 256 tokens. This workflow enables bounded continuation requests for an outline, brief or section that ends at a token limit. Every continuation uses the same run consent, preserves the selected model, and is saved before acknowledgment. With Allow once, Core asks again for the next request. It stops on the total token budget, continuation limit, cancellation or error; partial paid responses remain in Network results. Continuation limits bound generation; ongoing credit use requires the permission selected in Core.
 
 ## Web evidence
 

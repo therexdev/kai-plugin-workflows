@@ -378,7 +378,6 @@
     "Refresh network models": "Actualizar modelos de red",
     "Loading network models…": "Cargando modelos de red…",
     "Network models refreshed.": "Modelos de red actualizados.",
-    "Network steps send their input to a provider and use credits. Each request requires review.": "Los pasos de red envían sus datos a un proveedor y usan créditos. Cada solicitud requiere revisión.",
     "Ask a local or KAI network model to reason, write, or use selected read tools.": "Pide a un modelo local o de la red KAI que razone, escriba o use herramientas de lectura seleccionadas.",
     "After importing, review the nodes and choose your model, connections and any sub-workflows before saving.": "Después de importar, revisa los nodos y elige tu modelo, conexiones y subflujos antes de guardar.",
     "Imported as a new draft. Choose your model and review the nodes before saving.": "Importado como nuevo borrador. Elige tu modelo y revisa los nodos antes de guardar.",
@@ -398,7 +397,8 @@
     "Maximum continuations": "Máximo de continuaciones",
     "KAI network · Auto research": "Red KAI · Investigación automática",
     "KAI network · Auto outline": "Red KAI · Esquema automático",
-    "KAI network · Auto writing": "Red KAI · Redacción automática"
+    "KAI network · Auto writing": "Red KAI · Redacción automática",
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Los pasos de red envían datos a un proveedor y usan créditos. Core puede aprobar una solicitud, esta ejecución del flujo o el acceso continuo. Revoca el acceso continuo en Ajustes de Core → Acceso."
   },
   "pt-BR": {
     ", and": ", e",
@@ -779,7 +779,6 @@
     "Refresh network models": "Atualizar modelos da rede",
     "Loading network models…": "Carregando modelos da rede…",
     "Network models refreshed.": "Modelos da rede atualizados.",
-    "Network steps send their input to a provider and use credits. Each request requires review.": "As etapas de rede enviam os dados a um provedor e usam créditos. Cada solicitação exige revisão.",
     "Ask a local or KAI network model to reason, write, or use selected read tools.": "Peça a um modelo local ou da rede KAI para raciocinar, escrever ou usar ferramentas de leitura selecionadas.",
     "After importing, review the nodes and choose your model, connections and any sub-workflows before saving.": "Após importar, revise os nós e escolha seu modelo, conexões e subfluxos antes de salvar.",
     "Imported as a new draft. Choose your model and review the nodes before saving.": "Importado como novo rascunho. Escolha seu modelo e revise os nós antes de salvar.",
@@ -799,7 +798,8 @@
     "Maximum continuations": "Máximo de continuações",
     "KAI network · Auto research": "Rede KAI · Pesquisa automática",
     "KAI network · Auto outline": "Rede KAI · Estrutura automática",
-    "KAI network · Auto writing": "Rede KAI · Redação automática"
+    "KAI network · Auto writing": "Rede KAI · Redação automática",
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "As etapas de rede enviam dados a um provedor e usam créditos. O Core pode aprovar uma solicitação, esta execução do fluxo ou acesso contínuo. Revogue o acesso contínuo em Configurações do Core → Acesso."
   },
   "fr": {
     ", and": ", et",
@@ -1180,7 +1180,6 @@
     "Refresh network models": "Actualiser les modèles réseau",
     "Loading network models…": "Chargement des modèles réseau…",
     "Network models refreshed.": "Modèles réseau actualisés.",
-    "Network steps send their input to a provider and use credits. Each request requires review.": "Les étapes réseau envoient leurs données à un fournisseur et utilisent des crédits. Chaque requête doit être vérifiée.",
     "Ask a local or KAI network model to reason, write, or use selected read tools.": "Demandez à un modèle local ou du réseau KAI de raisonner, écrire ou utiliser les outils de lecture sélectionnés.",
     "After importing, review the nodes and choose your model, connections and any sub-workflows before saving.": "Après l’importation, vérifiez les nœuds et choisissez votre modèle, vos connexions et les sous-flux avant d’enregistrer.",
     "Imported as a new draft. Choose your model and review the nodes before saving.": "Importé comme nouveau brouillon. Choisissez votre modèle et vérifiez les nœuds avant d’enregistrer.",
@@ -1200,7 +1199,8 @@
     "Maximum continuations": "Nombre maximal de continuations",
     "KAI network · Auto research": "Réseau KAI · Recherche automatique",
     "KAI network · Auto outline": "Réseau KAI · Plan automatique",
-    "KAI network · Auto writing": "Réseau KAI · Rédaction automatique"
+    "KAI network · Auto writing": "Réseau KAI · Rédaction automatique",
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Les étapes réseau envoient des données à un fournisseur et utilisent des crédits. Core peut autoriser une demande, cette exécution du workflow ou un accès permanent. Révoquez l’accès permanent dans Paramètres de Core → Accès."
   },
   "de": {
     ", and": "und",
@@ -1581,7 +1581,6 @@
     "Refresh network models": "Netzwerkmodelle aktualisieren",
     "Loading network models…": "Netzwerkmodelle werden geladen…",
     "Network models refreshed.": "Netzwerkmodelle aktualisiert.",
-    "Network steps send their input to a provider and use credits. Each request requires review.": "Netzwerkschritte senden ihre Eingaben an einen Anbieter und verbrauchen Credits. Jede Anfrage muss geprüft werden.",
     "Ask a local or KAI network model to reason, write, or use selected read tools.": "Lass ein lokales Modell oder ein KAI-Netzwerkmodell denken, schreiben oder ausgewählte Lesewerkzeuge verwenden.",
     "After importing, review the nodes and choose your model, connections and any sub-workflows before saving.": "Prüfe nach dem Import die Knoten und wähle vor dem Speichern dein Modell, deine Verbindungen und mögliche Unter-Workflows.",
     "Imported as a new draft. Choose your model and review the nodes before saving.": "Als neuer Entwurf importiert. Wähle dein Modell und prüfe die Knoten vor dem Speichern.",
@@ -1601,6 +1600,7 @@
     "Maximum continuations": "Maximale Fortsetzungen",
     "KAI network · Auto research": "KAI-Netzwerk · Automatische Recherche",
     "KAI network · Auto outline": "KAI-Netzwerk · Automatische Gliederung",
-    "KAI network · Auto writing": "KAI-Netzwerk · Automatisches Schreiben"
+    "KAI network · Auto writing": "KAI-Netzwerk · Automatisches Schreiben",
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Netzwerkschritte senden Eingaben an einen Anbieter und verbrauchen Credits. Core kann eine Anfrage, diesen Workflow-Durchlauf oder dauerhaften Zugriff erlauben. Widerruf unter Core-Einstellungen → Zugriff."
   }
 }

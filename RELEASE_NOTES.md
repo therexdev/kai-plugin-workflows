@@ -1,4 +1,12 @@
-# Workflows 0.3.6
+# Workflows 0.3.7
+
+Adds Core-owned credit consent for an entire workflow run or ongoing plugin access. At the first network step, choose **Allow for Workflow** to cover all later agents, loops and continuations in this run, or **Allow Always** for future runs. **Allow once** remains available.
+
+Granted workflows can run in the background. Core remembers Always access across restarts for the same plugin publisher and credit account; revoke it in **Core Settings → Access**. Cancelling, finishing or failing a workflow releases its run approval. Hidden runs without a grant pause for review. Local-Only, credit estimates, available balances and provider verification remain enforced.
+
+Requires Core 0.7.23 for the new controls. Older Core retains per-request review. No additional manifest permissions. Includes consent, lifecycle, background execution and continuation regression coverage.
+
+## Previous release: 0.3.6
 
 Adds an importable researched-article workflow. Supply an article topic and a target of 200–5000 words. A researcher maps relevant topics, an outline agent creates headings and requirements, and a separate researcher and writer handle each section. The final output contains the article, source URLs, outline and actual word counts. There is no QA agent or clarification round.
 

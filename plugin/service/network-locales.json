@@ -1,0 +1,26 @@
+{
+  "es": {
+    "Use KAI network for this step?": "¿Usar la red KAI para este paso?",
+    "Estimated maximum: {0} credits ({1} free, {2} purchased).": "Máximo estimado: {0} créditos ({1} gratuitos, {2} comprados).",
+    "This sends the step's input and any selected tool results to a KAI network provider. Each request requires review.": "Esto envía los datos del paso y los resultados de las herramientas seleccionadas a un proveedor de la red KAI. Cada solicitud requiere revisión.",
+    "Input preview:": "Vista previa de los datos:"
+  },
+  "pt-BR": {
+    "Use KAI network for this step?": "Usar a rede KAI nesta etapa ?",
+    "Estimated maximum: {0} credits ({1} free, {2} purchased).": "Máximo estimado: {0} créditos ({1} gratuitos, {2} comprados).",
+    "This sends the step's input and any selected tool results to a KAI network provider. Each request requires review.": "Isso envia os dados da etapa e os resultados das ferramentas selecionadas a um provedor da rede KAI. Cada solicitação exige revisão.",
+    "Input preview:": "Prévia dos dados:"
+  },
+  "fr": {
+    "Use KAI network for this step?": "Utiliser le réseau KAI pour cette étape ?",
+    "Estimated maximum: {0} credits ({1} free, {2} purchased).": "Maximum estimé : {0} crédits ({1} gratuits, {2} achetés).",
+    "This sends the step's input and any selected tool results to a KAI network provider. Each request requires review.": "Les données de cette étape et les résultats des outils sélectionnés sont envoyés à un fournisseur du réseau KAI. Chaque requête doit être vérifiée.",
+    "Input preview:": "Aperçu des données :"
+  },
+  "de": {
+    "Use KAI network for this step?": "KAI-Netzwerk für diesen Schritt verwenden?",
+    "Estimated maximum: {0} credits ({1} free, {2} purchased).": "Geschätzter Höchstwert: {0} Credits ({1} kostenlos, {2} gekauft).",
+    "This sends the step's input and any selected tool results to a KAI network provider. Each request requires review.": "Die Eingaben dieses Schritts und die Ergebnisse ausgewählter Werkzeuge werden an einen Anbieter im KAI-Netzwerk gesendet. Jede Anfrage muss geprüft werden.",
+    "Input preview:": "Vorschau der Eingabe:"
+  }
+}

@@ -6,7 +6,7 @@ const Model = require("../workflow-model");
 const { normalize } = require("./workflow-engine");
 const pluginId = "kai.workflows";
 const ACTIONS = Object.freeze({
-  status: "workflows.read", workflowValidate: "workflows.read", workflowEventTypes: "workflows.read", exportWorkflow: "workflows.read",
+  status: "workflows.read", workflowModels: "workflows.read", workflowValidate: "workflows.read", workflowEventTypes: "workflows.read", exportWorkflow: "workflows.read",
   workflow: "workflows.write", workflowDraft: "workflows.write", importWorkflow: "workflows.write", removeWorkflow: "workflows.write",
   workflowEnabled: "workflows.run", workflowAssist: "workflows.run", workflowDiscoverySettings: "workflows.run", workflowDiscover: "workflows.run", workflowDismiss: "workflows.write",
   workflowPreview: "workflows.run", workflowReject: "workflows.run", cancelRun: "workflows.run", resume: "workflows.run"
@@ -21,7 +21,7 @@ function workflowStatus(state) {
   // Connections.list() already excludes credentials. Do not forward the
   // companion hub's unrelated memories, goals, conversations, or settings.
   return copy({ available: state.available, locked: false, workflows: state.workflows || [], runs: state.runs || [],
-    models: state.models || [], connections: (state.connections || []).map(c => ({ id: c.id, name: c.name, enabled: c.enabled, provider: c.provider, toolkit: c.toolkit,
+    models: state.models || [], networkModels: state.networkModels || {}, connections: (state.connections || []).map(c => ({ id: c.id, name: c.name, enabled: c.enabled, provider: c.provider, toolkit: c.toolkit,
       status: c.status, allowAgent: c.allowAgent, allowSync: c.allowSync, operations: c.operations || [] })),
     sources: (state.sources || []).map(s => ({ id: s.id, name: s.name, kind: s.kind, lastSync: s.lastSync, error: s.error })),
     workflowState: state.workflowState || {}, stepTypes: state.stepTypes || [], syncing: state.syncing || [] });
@@ -60,11 +60,11 @@ function create(ctx) {
       switch (action) {
         case "list": return { workflows: store().data.workflows.map(w => ({ ...copy(w), runnable: !w.draft })), runtimeVersion: 2, manualOnly: false };
         case "get": return definition(input.id);
-        case "export": return { schema: 1, runtimeVersion: 2, workflow: { ...definition(input.id), id: undefined, enabled: false } };
+        case "export": return { schema: 1, runtimeVersion: 2, workflow: require("./workflow-transfer").exportWorkflow(definition(input.id)).document.workflow };
         case "agents": return agents();
         case "agentSave": {
-          const value = { name: text(input.name, 100, "Agent name"), model: text(input.model, 200, "Local model"), instructions: text(input.instructions, 4000, "Instructions") };
-          if (/^(desktop:|koinos-network)/.test(value.model) || !ctx.models().some(m => m.alias === value.model && m.status === "ready")) throw new CompanionError("Choose an installed local model.");
+          const value = { name: text(input.name, 100, "Agent name"), model: text(input.model, 200, "Model"), instructions: text(input.instructions, 4000, "Instructions") };
+          if (!require("./workflow-inference").networkModel(value.model) && !ctx.models().some(m => m.alias === value.model && m.status === "ready" && !value.model.startsWith("desktop:"))) throw new CompanionError("Choose an installed local model or a KAI network model.");
           return store().change(d => { d.workflowAgents ||= []; const old = d.workflowAgents.find(a => a.id === input.id); if (input.id && !old) throw new CompanionError("Agent no longer exists."); const saved = { ...value, id: old?.id || id(), updatedAt: Date.now() }; if (old) d.workflowAgents[d.workflowAgents.indexOf(old)] = saved; else d.workflowAgents.push(saved); return saved; });
         }
         case "agentRemove": return store().change(d => { d.workflowAgents = (d.workflowAgents || []).filter(a => a.id !== input.id); return { removed: true }; });

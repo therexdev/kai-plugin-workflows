@@ -1,0 +1,104 @@
+{
+  "format": "kai.workflow",
+  "version": 1,
+  "workflow": {
+    "name": "SEO content brief",
+    "description": "Build a content brief from supplied audience, keywords, existing pages and client data. Does not perform live search or publish.",
+    "model": "",
+    "enabled": false,
+    "graph": {
+      "version": 2,
+      "nodes": [
+        {
+          "id": "start",
+          "type": "trigger",
+          "label": "Paste source notes",
+          "position": {
+            "x": 100,
+            "y": 60
+          },
+          "config": {
+            "kind": "manual",
+            "schedule": {
+              "kind": "daily",
+              "hour": 9,
+              "minute": 0,
+              "day": 1
+            },
+            "inputFields": []
+          }
+        },
+        {
+          "id": "analyze",
+          "type": "agent",
+          "label": "Analyze the source",
+          "position": {
+            "x": 100,
+            "y": 230
+          },
+          "config": {
+            "prompt": "Create an evidence-based content plan using only the client details, audience, goal, keywords, existing URLs and performance data supplied below. Do not invent search volume, rankings, competitor findings or Search Console results. Identify search intent, the primary page goal, likely overlap with supplied existing pages, and information gaps.\nClient data:\n{{input}}",
+            "profile": "analyst",
+            "model": "",
+            "execution": "once",
+            "maxTurns": 3,
+            "tools": []
+          }
+        },
+        {
+          "id": "write",
+          "type": "agent",
+          "label": "Write the result",
+          "position": {
+            "x": 100,
+            "y": 400
+          },
+          "config": {
+            "prompt": "Create a practical content brief from this analysis: proposed title, intended audience, intent, outline, questions to answer, evidence needed, internal links from supplied URLs only, and conversion action. Flag all assumptions and research still needed. Do not draft unsupported claims.\nAnalysis:\n{{previous}}",
+            "profile": "writer",
+            "model": "",
+            "execution": "once",
+            "maxTurns": 3,
+            "tools": []
+          }
+        },
+        {
+          "id": "result",
+          "type": "output",
+          "label": "Keep in run history",
+          "position": {
+            "x": 100,
+            "y": 570
+          },
+          "config": {
+            "text": "{{previous}}",
+            "saveChat": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "start:main:analyze:main",
+          "from": "start",
+          "to": "analyze",
+          "port": "main",
+          "input": "main"
+        },
+        {
+          "id": "analyze:main:write:main",
+          "from": "analyze",
+          "to": "write",
+          "port": "main",
+          "input": "main"
+        },
+        {
+          "id": "write:main:result:main",
+          "from": "write",
+          "to": "result",
+          "port": "main",
+          "input": "main"
+        }
+      ]
+    }
+  }
+}

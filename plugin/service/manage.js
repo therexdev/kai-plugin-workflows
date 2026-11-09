@@ -1,9 +1,11 @@
 "use strict";
 const fs=require("node:fs");
 const {CompanionError}=require("./companion-store");
+const Transfer=require("./workflow-transfer");
 async function savedWorkflow(service,ctx,input){const prepared=await service.workflowEvents.prepareWorkflow(input,ctx.signal);const grant=service.needsChatGrant(prepared);const saved=service.workflows.save({...prepared,...(grant?{enabled:false}:{})});if(grant){await service.grantChat(saved,ctx.signal);if(input.enabled)service.workflows.setEnabled(saved.id,true);}return service.store.data.workflows.find(w=>w.id===saved.id);}
 async function manage(service,ctx,action,input={}){if(action==="status")return service.status();service.store.requireStorage();switch(action){
       case "workflow": return savedWorkflow(service,ctx,input);
+      case "workflowModels": return service.inference.refresh();
       case "workflowValidate": return service.workflows.validate(input);
       case "workflowAssist": return service.workflowAssistant.ask(input, ctx.signal);
       case "workflowDiscoverySettings": return service.workflowAssistant.configure(input);
@@ -28,15 +30,17 @@ async function manage(service,ctx,action,input={}){if(action==="status")return s
         ctx.signal.throwIfAborted(); return service.workflows.resume(input.id);
       }
       case "exportWorkflow": {
-        const w = service.store.data.workflows.find(w => w.id === input.id); if (!w) throw new CompanionError("Workflow no longer exists.");
-        const result = await ctx.dialog.showSaveDialog(ctx.window, { title: "Export workflow", defaultPath: "KAI-Workflow.json", filters: [{ name: "Workflow", extensions: ["json"] }] });
-        ctx.signal.throwIfAborted(); if (!result.canceled && result.filePath) { const { id: _id, ...spec } = w; fs.writeFileSync(result.filePath, JSON.stringify({ ...spec, enabled: false }, null, 2), { mode: 0o600 }); } return !result.canceled;
+        const w = input.workflow || service.store.data.workflows.find(w => w.id === input.id); if (!w) throw new CompanionError("Workflow no longer exists.");
+        const output = Transfer.exportWorkflow(w);
+        const result = await ctx.dialog.showSaveDialog(ctx.window, { title: "Export workflow", defaultPath: output.filename, filters: [{ name: "KAI workflow JSON", extensions: ["json"] }] });
+        ctx.signal.throwIfAborted(); if (result.canceled || !result.filePath) return false;
+        fs.writeFileSync(result.filePath, output.json, { mode: 0o600 }); return true;
       }
       case "importWorkflow": {
+        if (Object.hasOwn(input, "text")) return Transfer.importWorkflow(service, Transfer.parseDocument(input.text));
         const result = await ctx.dialog.showOpenDialog(ctx.window, { properties: ["openFile"], filters: [{ name: "KAI workflow", extensions: ["json"] }] });
-        ctx.signal.throwIfAborted(); if (result.canceled || !result.filePaths[0]) return null;
-        if (fs.statSync(result.filePaths[0]).size > 160000) throw new CompanionError("Workflow file is too large.");
-        const spec = require("../workflow-model").importDocument(JSON.parse(fs.readFileSync(result.filePaths[0], "utf8"))); delete spec.id; return service.workflows.save(spec, { draft: true });
+        ctx.signal.throwIfAborted(); if (result.canceled || !result.filePaths?.[0]) return null;
+        return Transfer.importWorkflow(service, Transfer.readDocument(result.filePaths[0]));
       }
 
  default:throw new CompanionError("Unknown Workflows action.");}}

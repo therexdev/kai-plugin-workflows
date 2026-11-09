@@ -16,6 +16,10 @@ Workflows consumes redacted connection metadata and Brain content through their 
 
 QuickJS and cron-parser, their resolved dependencies, WebAssembly and licenses are bundled under `plugin/service/node_modules`; `plugin/service/dependencies.json` records pinned versions. Workflow code receives JSON values only, no host functions or Node objects, with time and memory limits.
 
+## Workflow JSON import and export
+
+Workflows 0.3.5 adds visible **Import JSON** and **Export JSON** controls, file or pasted-JSON import, and a versioned `.workflow.json` format. Imports create new disabled drafts; exported definitions exclude run history and live event registrations. The builder can export its current unsaved canvas. Agent steps, Copilot and Discover can use installed local models or KAI network models; individual Agent nodes can override the workflow default. Network requests go through Core’s credit service with cost review. See the [sharing guide, format and starter workflows](docs/workflow-sharing.md).
+
 ## Checks
 
 Run `npm test`. Tests cover the preserved UI, actual plugin-owned engine behavior, independent encrypted state, provider-owned review and missing-service failures. Workflows additionally tests bounded JavaScript, graph execution and a cross-plugin integration when the sibling Brain/Connections repos are present. These are synthetic local checks, not live provider/OAuth or native operating-system verification.

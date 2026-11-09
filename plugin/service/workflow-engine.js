@@ -209,7 +209,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     else if (n.type === "approval") { approval = true; detail = { name: n.label, text: await V.resolve(c.text || "{{previous}}", scope, signal) }; }
     if (n.type === "agent" && networkModel(c.model || this.get(key).frames[frameId].model)) {
       sideEffect = true; // Never automatically retry a possibly charged request.
-      approval ||= !this.canReviewNetwork();
+      approval ||= !await this.canReviewNetwork(key, this.get(key).name);
       detail = { name: n.label, model: c.model || this.get(key).frames[frameId].model, message: "Open Workflows and resume to review network credits before this step." };
     }
     if (approval && !detail) detail = { name: n.label, input: scope.items };
@@ -227,7 +227,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       let turns = state().turns || [], answer;
       for (let turn = turns.length; turn < max; turn++) {
         const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`.slice(0, 16000);
-        answer = await this.runLocal({ model, prompt, runId: key, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations, signal: AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
+        answer = await this.runLocal({ model, prompt, runId: key, workflowName: this.get(key).name, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations, signal: AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
         let call; try { call = JSON.parse(answer).tool; } catch { /* final prose */ }
         if (!call) return main(V.envelope(answer));
         const selected = tools[call.index]; if (!selected || turn + 1 >= max) throw new CompanionError("Agent reached its selected-tool or turn limit.");

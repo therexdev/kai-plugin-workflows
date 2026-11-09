@@ -33,8 +33,8 @@ function fill(value, run) {
   return value;
 }
 class CompanionWorkflows {
-  constructor({ store, connections, runLocal, models }) {
-    this.store = store; this.connections = connections; this.runLocal = runLocal; this.models = models; this.active = new Map(); this.timer = null;
+  constructor({ store, connections, runLocal, models, onRunFinished = () => {} }) {
+    this.onRunFinished = onRunFinished; this.store = store; this.connections = connections; this.runLocal = runLocal; this.models = models; this.active = new Map(); this.timer = null;
     if (!store.locked && store.available() && store.data.runs.some(r => r.status === "running")) store.change(d => {
       for (const r of d.runs) if (r.status === "running") {
         r.status = "interrupted"; r.error = r.inFlight ? "KAI stopped during a step. Its result may be uncertain; inspect it before starting a new run." : "KAI restarted between steps. Resume when ready.";
@@ -81,7 +81,7 @@ class CompanionWorkflows {
     this.drive(key, controller.signal, approved).catch(error => {
       if (this.get(key)?.status === "cancelled") return;
       this.patch(key, r => { r.status = "failed"; r.error = error instanceof CompanionError ? error.message : error.name === "AbortError" ? "Run stopped." : "Step failed. Check the local model or connection, then start a new run."; r.finishedAt = Date.now(); });
-    }).finally(() => this.active.delete(key)).catch(() => {
+    }).finally(() => { this.active.delete(key); if (!["waiting", "interrupted"].includes(this.get(key)?.status)) this.onRunFinished(key); }).catch(() => {
       // The original failure was handled above. A second failure here means its
       // status could not be persisted (for example, a guarded profile conflict).
       // Preserve that file and avoid an unhandled rejection from this background
@@ -97,7 +97,7 @@ class CompanionWorkflows {
       const s = r.spec.steps[r.index];
       let request;
       if (s.type === "connection") request = await this.connections.prepare(s.connectionId, s.operationId, fill(s.variables, r), fill(s.body, r));
-      const needsApproval = (s.type === "prompt" && networkModel(r.spec.model) && !this.canReviewNetwork?.()) || ["remember", "approval"].includes(s.type) || (request && (request.method !== "GET" || !this.store.data.connections.find(c => c.id === s.connectionId)?.allowSync));
+      const needsApproval = (s.type === "prompt" && networkModel(r.spec.model) && !await this.canReviewNetwork?.(key, r.name)) || ["remember", "approval"].includes(s.type) || (request && (request.method !== "GET" || !this.store.data.connections.find(c => c.id === s.connectionId)?.allowSync));
       if (needsApproval && !approved) {
         this.patch(key, x => { x.status = "waiting"; x.pending = request || { name: s.label, text: fill(s.text, r) }; }); return;
       }
@@ -109,7 +109,7 @@ class CompanionWorkflows {
       if (s.type === "brain_search") output = (await this.store.search(fill(s.text || "{{input}}", r), 8)).map(n => `[${n.title}] ${n.text}`).join("\n\n").slice(0, 12000) || "No matching Brain notes.";
       if (s.type === "prompt") {
         if (!networkModel(r.spec.model) && !this.models().some(m => m.alias === r.spec.model && m.status === "ready")) throw new CompanionError("Workflow model is not installed and ready.");
-        output = await this.runLocal({ model: r.spec.model, prompt: fill(s.text, r), runId: key, signal });
+        output = await this.runLocal({ model: r.spec.model, prompt: fill(s.text, r), runId: key, workflowName: r.name, signal });
       }
       if (s.type === "connection") output = await this.connections.execute(request, signal);
       if (s.type === "condition") { stop = !r.previous.toLowerCase().includes(fill(s.text, r).toLowerCase()); if (stop) output = "Condition did not match. Remaining steps skipped."; }
@@ -128,7 +128,7 @@ class CompanionWorkflows {
     if (r.inFlight) throw new CompanionError("An interrupted step has an uncertain result. Inspect it, cancel this run, and start a new one if needed.");
     this.launch(key, r.status === "waiting");
   }
-  cancel(key) { if (!this.get(key)) throw new CompanionError("Run no longer exists."); this.active.get(key)?.abort(); this.patch(key, r => { r.status = "cancelled"; r.finishedAt = Date.now(); r.pending = null; }); }
+  cancel(key) { if (!this.get(key)) throw new CompanionError("Run no longer exists."); this.active.get(key)?.abort(); this.patch(key, r => { r.status = "cancelled"; r.finishedAt = Date.now(); r.pending = null; }); this.onRunFinished(key); }
   async tick(now = Date.now()) {
     if (this.store.locked || !this.store.available()) return;
     for (const w of this.store.data.workflows) if (w.enabled && w.nextRunAt && Date.parse(w.nextRunAt) <= now) {

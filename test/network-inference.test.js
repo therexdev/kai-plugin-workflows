@@ -29,6 +29,35 @@ async function terminal(app, id) {
   }
   assert.fail("Run did not settle");
 }
+test("Core consent is reused for every continuation with the same workflow run identity", async t => {
+  const f = setup(t), scopes = []; let part = 0;
+  f.api.wallet.complete = async (request, options, signal) => {
+    signal.throwIfAborted(); scopes.push(options.workflow);
+    return { choices: [{ message: { content: ++part === 1 ? "First " : "second" }, finish_reason: part === 1 ? "length" : "stop" }], usage: { completion_tokens: 20 } };
+  };
+  f.api.wallet.creditAccess = async () => ({ allowed: true, duration: "workflow" }); f.setVisible(false);
+  assert.equal(await f.inference.run({ model: ALIAS, prompt: "Article", runId: "run-1", workflowName: "Article", maxContinuations: 2 }), "First second");
+  assert.deepEqual(scopes, [{ id: "run-1", name: "Article" }, { id: "run-1", name: "Article" }]);
+  assert.equal(f.confirmations.length, 0); assert.equal(f.calls.length, 0);
+  f.api.wallet.creditAccess = async () => ({ allowed: false });
+  await assert.rejects(f.inference.run({ model: ALIAS, prompt: "Revoked", runId: "run-1" }), /Open Workflows/);
+  assert.equal(scopes.length, 2);
+});
+test("a background workflow with Core access finishes and releases its run scope", async t => {
+  const f = setup(t, { networkOnly: true }), ended = [], scopes = [];
+  f.api.wallet.complete = async (input, options, signal) => { scopes.push(options.workflow); return f.api.wallet.authorize("chat-completion", input, signal); };
+  f.api.wallet.creditAccess = async () => ({ allowed: true, duration: "always" });
+  f.api.wallet.endCreditScope = id => ended.push(id);
+  const app = create(f.api); t.after(() => app.dispose());
+  const saved = await app.call("workflows.workflow", Model.template("ask", ALIAS)); f.setVisible(false);
+  const { id } = await app.call("workflows.run", { id: saved.id, input: "Background" });
+  const run = await terminal(app, id); assert.equal(run.status, "completed", run.error);
+  assert.deepEqual(ended, [id]); assert.deepEqual(scopes, [{ id, name: saved.name }]); assert.equal(f.confirmations.length, 0);
+  f.api.wallet.creditAccess = async () => ({ allowed: false });
+  const next = await app.call("workflows.run", { id: saved.id, input: "Revoked" });
+  assert.equal((await terminal(app, next.id)).status, "waiting"); assert.deepEqual(ended, [id]);
+  await app.call("workflows.cancel", { id: next.id }); assert(ended.includes(next.id));
+});
 test("network discovery is explicit, identifies actual availability and leaves local inference independent", async t => {
   const f = setup(t);
   assert.equal(f.inference.list().length, 1);

@@ -43,3 +43,5 @@ CI tests source on `foundation-v1`, pull requests and `main` on Windows, macOS a
 This plugin follows the language saved in KAI Core Settings and applies changes to open views. English, Spanish, Brazilian Portuguese, French and German are supported through bundled offline catalogs. User content and identifiers stay literal. These source changes require Core 0.7.17+ for the live locale API; release the Core update before publishing a new signed plugin package and catalog entry. See the [public localization API](https://github.com/therexdev/kai-core/blob/main/docs/foundation/PLUGIN_AUTHOR_GUIDE.md#shared-language-and-localization-core-0717).
 
 [Interface language and translation guide](docs/localization.md).
+
+Workflows 0.3.7 uses Core 0.7.23 credit consent: **Allow for Workflow** authorizes the rest of the current run, and **Allow Always** permits future runs. Manage ongoing permissions in **Core Settings → Access**. Granted runs can continue in the background; without a grant, unattended network steps pause for review.

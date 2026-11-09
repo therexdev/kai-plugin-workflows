@@ -389,7 +389,16 @@
     "Network results": "Resultados de red",
     "Credits used: {0}": "Créditos usados: {0}",
     "Choose a model and find suggestions. Nothing is saved or enabled until you review it.": "Elige un modelo y busca sugerencias. Nada se guarda ni activa hasta que lo revises.",
-    " · choose a model": " · elige un modelo"
+    " · choose a model": " · elige un modelo",
+    "Web research": "Investigación web",
+    "Search the web and read public source excerpts.": "Busca en la web y lee extractos de fuentes públicas.",
+    "Search query": "Consulta de búsqueda",
+    "Maximum source pages": "Máximo de páginas fuente",
+    "Output token budget": "Presupuesto de tokens de salida",
+    "Maximum continuations": "Máximo de continuaciones",
+    "KAI network · Auto research": "Red KAI · Investigación automática",
+    "KAI network · Auto outline": "Red KAI · Esquema automático",
+    "KAI network · Auto writing": "Red KAI · Redacción automática"
   },
   "pt-BR": {
     ", and": ", e",
@@ -781,7 +790,16 @@
     "Network results": "Resultados da rede",
     "Credits used: {0}": "Créditos usados: {0}",
     "Choose a model and find suggestions. Nothing is saved or enabled until you review it.": "Escolha um modelo e encontre sugestões. Nada é salvo ou ativado até sua revisão.",
-    " · choose a model": " · escolha um modelo"
+    " · choose a model": " · escolha um modelo",
+    "Web research": "Pesquisa na web",
+    "Search the web and read public source excerpts.": "Pesquise na web e leia trechos de fontes públicas.",
+    "Search query": "Consulta de pesquisa",
+    "Maximum source pages": "Máximo de páginas de fontes",
+    "Output token budget": "Limite de tokens de saída",
+    "Maximum continuations": "Máximo de continuações",
+    "KAI network · Auto research": "Rede KAI · Pesquisa automática",
+    "KAI network · Auto outline": "Rede KAI · Estrutura automática",
+    "KAI network · Auto writing": "Rede KAI · Redação automática"
   },
   "fr": {
     ", and": ", et",
@@ -1173,7 +1191,16 @@
     "Network results": "Résultats réseau",
     "Credits used: {0}": "Crédits utilisés : {0}",
     "Choose a model and find suggestions. Nothing is saved or enabled until you review it.": "Choisissez un modèle et recherchez des suggestions. Rien n’est enregistré ni activé avant votre vérification.",
-    " · choose a model": " · choisir un modèle"
+    " · choose a model": " · choisir un modèle",
+    "Web research": "Recherche web",
+    "Search the web and read public source excerpts.": "Rechercher sur le web et lire des extraits de sources publiques.",
+    "Search query": "Requête de recherche",
+    "Maximum source pages": "Nombre maximal de pages sources",
+    "Output token budget": "Budget de jetons de sortie",
+    "Maximum continuations": "Nombre maximal de continuations",
+    "KAI network · Auto research": "Réseau KAI · Recherche automatique",
+    "KAI network · Auto outline": "Réseau KAI · Plan automatique",
+    "KAI network · Auto writing": "Réseau KAI · Rédaction automatique"
   },
   "de": {
     ", and": "und",
@@ -1565,6 +1592,15 @@
     "Network results": "Netzwerkergebnisse",
     "Credits used: {0}": "Verbrauchte Credits: {0}",
     "Choose a model and find suggestions. Nothing is saved or enabled until you review it.": "Wähle ein Modell und suche Vorschläge. Erst nach deiner Prüfung wird etwas gespeichert oder aktiviert.",
-    " · choose a model": " · Modell auswählen"
+    " · choose a model": " · Modell auswählen",
+    "Web research": "Webrecherche",
+    "Search the web and read public source excerpts.": "Im Web suchen und Auszüge öffentlicher Quellen lesen.",
+    "Search query": "Suchanfrage",
+    "Maximum source pages": "Maximale Anzahl Quellenseiten",
+    "Output token budget": "Ausgabetoken-Budget",
+    "Maximum continuations": "Maximale Fortsetzungen",
+    "KAI network · Auto research": "KAI-Netzwerk · Automatische Recherche",
+    "KAI network · Auto outline": "KAI-Netzwerk · Automatische Gliederung",
+    "KAI network · Auto writing": "KAI-Netzwerk · Automatisches Schreiben"
   }
 }

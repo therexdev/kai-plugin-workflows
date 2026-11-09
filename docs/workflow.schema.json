@@ -96,7 +96,7 @@
             "trigger",
             "agent",
             "tool_call",
-            "http_request",
+            "http_request", "web_research",
             "code",
             "sub_workflow",
             "memory",

@@ -168,7 +168,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
   }
   async executeNode(key, frameId, n, values, groups, signal) {
     const c = n.config, baseScope = this.scope(key, frameId, values);
-    const perItem = ["agent", "tool_call", "http_request", "memory", "sub_workflow"].includes(n.type) && c.execution === "per_item";
+    const perItem = ["agent", "tool_call", "http_request", "web_research", "memory", "sub_workflow"].includes(n.type) && c.execution === "per_item";
     const batches = perItem ? values.map(v => [v]) : [values];
     for (let i = this.state(key, frameId, n.id).cursor; i < batches.length; i++) {
       signal.throwIfAborted(); const batch = batches[i], scope = { ...baseScope, item: batch[0], items: batch }, token = `${frameId}/${n.id}/${i}`;
@@ -219,7 +219,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
   async perform(key, frameId, n, scope, groups, prepared, signal, token) {
     const c = n.config, state = () => this.state(key, frameId, n.id), resolve = v => V.resolve(v, scope, signal), main = data => ({ main: V.items(data) }), dry = this.get(key).dryRun;
     signal.throwIfAborted();
-    if (dry && ["agent", "tool_call", "http_request", "memory", "approval"].includes(n.type)) return { [n.type === "approval" ? "approved" : "main"]: V.items(c.sampleOutput ?? { text: "Preview: " + n.label, json: { preview: true }, preview: true }) };
+    if (dry && ["agent", "tool_call", "http_request", "web_research", "memory", "approval"].includes(n.type)) return { [n.type === "approval" ? "approved" : "main"]: V.items(c.sampleOutput ?? { text: "Preview: " + n.label, json: { preview: true }, preview: true }) };
     if (n.type === "trigger") return main(scope.items);
     if (n.type === "agent") {
       const model = c.model || this.get(key).frames[frameId].model; if (!networkModel(model) && (model.startsWith("desktop:") || !this.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("The local model is not installed and ready.");
@@ -227,7 +227,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       let turns = state().turns || [], answer;
       for (let turn = turns.length; turn < max; turn++) {
         const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`.slice(0, 16000);
-        answer = await this.runLocal({ model, prompt, runId: key, signal: AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
+        answer = await this.runLocal({ model, prompt, runId: key, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations, signal: AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
         let call; try { call = JSON.parse(answer).tool; } catch { /* final prose */ }
         if (!call) return main(V.envelope(answer));
         const selected = tools[call.index]; if (!selected || turn + 1 >= max) throw new CompanionError("Agent reached its selected-tool or turn limit.");
@@ -238,6 +238,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     }
     if (n.type === "tool_call" || n.type === "http_request" && c.connectionId) return main(V.envelope(await this.connections.execute(prepared.request, signal)));
     if (n.type === "http_request") return main(await this.http(prepared.request, signal));
+    if (n.type === "web_research") return main(await require("./workflow-research").research(await resolve(c.query), { signal, privacyMode: this.privacyMode, fetchImpl: this.fetch, lookup: this.lookup, maxPages: c.maxPages }));
     if (n.type === "code") return main(await V.evaluate(c.source, scope, signal, false));
     if (n.type === "transform") return main(await Promise.all(scope.items.map(async item => ({ ...(c.keepFields ? item : {}), ...await V.resolve(c.set || {}, { ...scope, item }, signal) }))));
     if (n.type === "condition") {

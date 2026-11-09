@@ -22,6 +22,8 @@ Workflows 0.3.5 adds visible **Import JSON** and **Export JSON** controls, file 
 
 ## Checks
 
+Workflows 0.3.6 includes an [importable researched-article workflow](examples/researched-article.workflow.json): topic discovery, a budgeted outline, and separate research and writing agents for every section. It chooses currently eligible network models by task preference, reads public source excerpts, and assembles a cited draft without a QA pass. See [article workflow usage and limits](docs/article-workflow.md).
+
 Run `npm test`. Tests cover the preserved UI, actual plugin-owned engine behavior, independent encrypted state, provider-owned review and missing-service failures. Workflows additionally tests bounded JavaScript, graph execution and a cross-plugin integration when the sibling Brain/Connections repos are present. These are synthetic local checks, not live provider/OAuth or native operating-system verification.
 
 The original renderer/layout assets remain recorded in the existing provenance files. This does not require or restore the old runtime/profile structure.

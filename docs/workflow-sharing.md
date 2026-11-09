@@ -1,6 +1,6 @@
 # Importing, exporting and authoring workflows
 
-Available in Workflows **0.3.5** once its signed plugin update is released. Requires Core 0.7.17 or newer, as before.
+Available in Workflows **0.3.5**. Requires Core 0.7.17 or newer, as before.
 
 ## Import a file or a workflow from chat
 

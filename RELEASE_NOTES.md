@@ -6,7 +6,7 @@ Export JSON is now visible on each workflow and in the builder. Builder export i
 
 Workflow Agent nodes, Copilot and Discover now support KAI network models as well as installed local models. Network-only and mixed workflows preserve their choices in JSON. Refresh the catalog to choose a model; network requests use Core credits with per-request cost review, respect Local-Only, and pause for review when the app is hidden. Possible charged failures are never automatically retried, and network results are saved before acknowledgment. The update adds the inference.network and wallet.authorize permissions.
 
-Includes validation, cancellation/error handling, translations for all five interface languages, a JSON schema, and starter files for KAI release notes, bug report triage and SEO content briefs. Requires Core 0.7.17 or newer. Publication still requires the existing publisher's signed package and catalog update.
+Includes validation, cancellation/error handling, translations for all five interface languages, a JSON schema, and starter files for KAI release notes, bug report triage and SEO content briefs. Requires Core 0.7.17 or newer.
 
 ## Previous release
 

@@ -1,4 +1,12 @@
-# Workflows 0.3.7
+# Workflows 0.3.8
+
+Automatic research, outline and writing models now refresh eligibility and try another suitable online model when Core confirms the previous selection failed before generation started. Selection is bounded to three attempts, recalculates the new model's output limit, and retains the same workflow credit permission.
+
+Explicit model choices, partially delivered responses, cancelled requests and uncertain credit outcomes are not automatically restarted. Completed results record the actual model used. Local-Only and provider eligibility remain enforced.
+
+Requires Core 0.7.24 for safe fallback. Update Core and restart it, then update Workflows in Plugins. Existing researched-article imports need no edits: open Run history and choose Run again.
+
+## Previous release: 0.3.7
 
 Adds Core-owned credit consent for an entire workflow run or ongoing plugin access. At the first network step, choose **Allow for Workflow** to cover all later agents, loops and continuations in this run, or **Allow Always** for future runs. **Allow once** remains available.
 

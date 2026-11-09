@@ -43,6 +43,54 @@ test("Core consent is reused for every continuation with the same workflow run i
   await assert.rejects(f.inference.run({ model: ALIAS, prompt: "Revoked", runId: "run-1" }), /Open Workflows/);
   assert.equal(scopes.length, 2);
 });
+
+test("automatic tasks refresh and reselect only after Core confirms generation never started", async t => {
+  const f = setup(t), requests = [], scopes = []; let refreshes = 0;
+  f.api.network.models = async () => { refreshes++; return [
+    { model: "qwen25-32b", available: true, maxOutput: 256 },
+    { model: "phi-4", available: true, maxOutput: 64 }
+  ]; };
+  f.api.wallet.complete = async (request, options) => {
+    requests.push(request); scopes.push(options.workflow);
+    if (requests.length === 1) throw Object.assign(Error("Provider left"), { code: "network-model-unavailable", safeToRetry: true });
+    return { choices: [{ message: { content: "Researched answer" }, finish_reason: "stop" }] };
+  };
+  assert.equal(await f.inference.run({ model: "koinos-network:auto-research", prompt: "Research", runId: "run-reselect", workflowName: "Article" }), "Researched answer");
+  assert.equal(refreshes, 2); assert.deepEqual(requests.map(r => r.model), ["koinos-network:qwen25-32b", "koinos-network:phi-4"]);
+  assert.deepEqual(requests.map(r => r.max_tokens), [256, 64]);
+  assert.deepEqual(scopes, [{ id: "run-reselect", name: "Article" }, { id: "run-reselect", name: "Article" }]);
+  assert.equal(f.saved.length, 1); assert.equal(f.saved[0].model, "koinos-network:phi-4");
+});
+
+test("stale availability retries are bounded and keep the task's best freshly eligible model", async t => {
+  const f = setup(t); let attempts = 0, refreshes = 0;
+  f.api.network.models = async () => { refreshes++; return [{ model: "phi-4", available: true, maxOutput: 64 }]; };
+  f.api.wallet.complete = async () => { attempts++; throw Object.assign(Error("Availability expired"), { code: "network-models-stale", safeToRetry: true }); };
+  await assert.rejects(f.inference.run({ model: "koinos-network:auto-outline", prompt: "Outline" }), /Availability expired/);
+  assert.equal(attempts, 3); assert.equal(refreshes, 3); assert.equal(f.saved.length, 0);
+});
+
+test("automatic selection never retries an ambiguous outcome, an explicit model, or a partial response", async t => {
+  for (const scenario of ["unknown", "code-only", "explicit", "partial", "cancel", "privacy", "no-provider"]) {
+    const f = setup(t); let attempts = 0;
+    const c = new AbortController();
+    f.api.wallet.complete = async () => {
+      attempts++;
+      if (scenario === "partial" && attempts === 1) return { choices: [{ message: { content: "Saved part" }, finish_reason: "length" }], usage: { completion_tokens: 10 } };
+      if (scenario === "cancel") c.abort();
+      if (scenario === "privacy") f.setMode("local-only");
+      if (scenario === "no-provider") f.setAvailable(false);
+      const error = Error("This network model is unavailable");
+      if (scenario !== "unknown") error.code = "network-model-unavailable";
+      if (!["unknown", "code-only"].includes(scenario)) error.safeToRetry = true;
+      throw error;
+    };
+    await assert.rejects(f.inference.run({ model: scenario === "explicit" ? ALIAS : "koinos-network:auto-research", prompt: "Research", maxContinuations: 2, signal: c.signal }));
+    assert.equal(attempts, scenario === "partial" ? 2 : 1, scenario);
+    assert.equal(f.saved.length, scenario === "partial" ? 1 : 0, scenario);
+    assert.equal(f.localCalls.length, 0);
+  }
+});
 test("a background workflow with Core access finishes and releases its run scope", async t => {
   const f = setup(t, { networkOnly: true }), ended = [], scopes = [];
   f.api.wallet.complete = async (input, options, signal) => { scopes.push(options.workflow); return f.api.wallet.authorize("chat-completion", input, signal); };

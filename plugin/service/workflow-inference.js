@@ -3,6 +3,7 @@ const { CompanionError } = require("./companion-store");
 const { active, runLocal } = require("./runtime");
 const reviewLocales = require("./network-locales.json");
 const { choose } = require("./workflow-routing");
+const { withDeadline } = require("./workflow-deadline");
 const networkModel = model => typeof model === "string" && /^koinos-network:[a-zA-Z0-9._-]{1,100}$/.test(model);
 const credits = value => { const n = BigInt(value); return `${n / 100000n}.${String(n % 100000n).padStart(5, "0")}`.replace(/\.?0+$/, ""); };
 
@@ -52,6 +53,14 @@ function createInference(api, recordResult) {
     return api.wallet.authorize("chat-completion", request, signal);
   }
   async function networkRequest(options, signal) {
+    // Start after this request reaches the front of the credit queue. Each
+    // separately charged reply gets its own timeout; the entire response is
+    // still bounded, as are its existing token and continuation budgets.
+    return withDeadline(signal, 15 * 60 * 1000,
+      "This network response reached the 15-minute limit. Completed parts are saved in Network results.",
+      timedSignal => networkResponse(options, timedSignal));
+  }
+  async function networkResponse(options, signal) {
     active(api, signal);
     if (api.network.status().privacyMode === "local-only") throw new CompanionError("Local-Only is on. Choose an online privacy mode in Core Settings to use KAI network models.");
     if (!await canRun(options.runId, options.workflowName)) throw new CompanionError("Open Workflows to review this KAI network request.");
@@ -70,9 +79,14 @@ function createInference(api, recordResult) {
         active(api, signal);
         request = { model: chosen.alias, messages, max_tokens: Math.min(remaining, Number.isInteger(chosen.maxOutput) && chosen.maxOutput > 0 ? chosen.maxOutput : 1200), stream: false };
         try {
-          result = api.wallet.complete
-            ? await api.wallet.complete(request, options.runId ? { workflow: { id: options.runId, name: options.workflowName || "Workflow" } } : {}, signal)
-            : await legacyComplete(request, chosen, messages, signal);
+          // Graph nodes supply their configured 5–180 seconds. Other native
+          // callers retain Core's existing ten-minute per-request allowance.
+          const seconds = Math.max(5, Math.min(600, Number(options.timeoutSeconds) || 600));
+          result = await withDeadline(signal, seconds * 1000,
+            `The network reply timed out after ${seconds} seconds. Completed parts are saved in Network results.`,
+            replySignal => api.wallet.complete
+              ? api.wallet.complete(request, options.runId ? { workflow: { id: options.runId, name: options.workflowName || "Workflow" } } : {}, replySignal)
+              : legacyComplete(request, chosen, messages, replySignal));
           break;
         } catch (failure) {
           // Core 0.7.24 explicitly marks availability failures that never

@@ -185,7 +185,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       }
       if (outputs === WAIT) { this.patchNode(key, frameId, n.id, s => { s.status = "waiting"; }); return WAIT; }
       if (failure) {
-        const message = failure instanceof CompanionError ? failure.message : "This node failed. Check its settings and input.";
+        const message = failure instanceof CompanionError ? failure.message : failure?.name === "TimeoutError" ? `The model reply timed out after ${c.timeoutSeconds} seconds.` : "This node failed. Check its settings and input.";
         if (!composite) this.logFinish(key, token, [], "failed", message);
         if (c.onError === "stop") { this.patchNode(key, frameId, n.id, s => { s.status = "failed"; }); throw new CompanionError(n.label + ": " + message); }
         outputs = { [c.onError === "route" ? "error" : "main"]: [{ error: message, failed: true, nodeId: n.id }] };
@@ -227,7 +227,8 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       let turns = state().turns || [], answer;
       for (let turn = turns.length; turn < max; turn++) {
         const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`.slice(0, 16000);
-        answer = await this.runLocal({ model, prompt, runId: key, workflowName: this.get(key).name, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations, signal: AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
+        answer = await this.runLocal({ model, prompt, runId: key, workflowName: this.get(key).name, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations,
+          timeoutSeconds: c.timeoutSeconds, signal: networkModel(model) ? signal : AbortSignal.any([signal, AbortSignal.timeout(c.timeoutSeconds * 1000)]) });
         let call; try { call = JSON.parse(answer).tool; } catch { /* final prose */ }
         if (!call) return main(V.envelope(answer));
         const selected = tools[call.index]; if (!selected || turn + 1 >= max) throw new CompanionError("Agent reached its selected-tool or turn limit.");

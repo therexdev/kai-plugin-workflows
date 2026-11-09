@@ -398,7 +398,9 @@
     "KAI network · Auto research": "Red KAI · Investigación automática",
     "KAI network · Auto outline": "Red KAI · Esquema automático",
     "KAI network · Auto writing": "Red KAI · Redacción automática",
-    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Los pasos de red envían datos a un proveedor y usan créditos. Core puede aprobar una solicitud, esta ejecución del flujo o el acceso continuo. Revoca el acceso continuo en Ajustes de Core → Acceso."
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Los pasos de red envían datos a un proveedor y usan créditos. Core puede aprobar una solicitud, esta ejecución del flujo o el acceso continuo. Revoca el acceso continuo en Ajustes de Core → Acceso.",
+    "Model reply timeout (5–180 seconds)": "Tiempo límite por respuesta del modelo (5–180 segundos)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Cada respuesta de red tiene su propio tiempo límite. Las continuaciones pueden durar hasta 15 minutos en total. Las partes completadas se guardan en Resultados de red."
   },
   "pt-BR": {
     ", and": ", e",
@@ -799,7 +801,9 @@
     "KAI network · Auto research": "Rede KAI · Pesquisa automática",
     "KAI network · Auto outline": "Rede KAI · Estrutura automática",
     "KAI network · Auto writing": "Rede KAI · Redação automática",
-    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "As etapas de rede enviam dados a um provedor e usam créditos. O Core pode aprovar uma solicitação, esta execução do fluxo ou acesso contínuo. Revogue o acesso contínuo em Configurações do Core → Acesso."
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "As etapas de rede enviam dados a um provedor e usam créditos. O Core pode aprovar uma solicitação, esta execução do fluxo ou acesso contínuo. Revogue o acesso contínuo em Configurações do Core → Acesso.",
+    "Model reply timeout (5–180 seconds)": "Tempo limite por resposta do modelo (5–180 segundos)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Cada resposta da rede tem seu próprio tempo limite. As continuações podem durar até 15 minutos no total. As partes concluídas são salvas em Resultados da rede."
   },
   "fr": {
     ", and": ", et",
@@ -1200,7 +1204,9 @@
     "KAI network · Auto research": "Réseau KAI · Recherche automatique",
     "KAI network · Auto outline": "Réseau KAI · Plan automatique",
     "KAI network · Auto writing": "Réseau KAI · Rédaction automatique",
-    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Les étapes réseau envoient des données à un fournisseur et utilisent des crédits. Core peut autoriser une demande, cette exécution du workflow ou un accès permanent. Révoquez l’accès permanent dans Paramètres de Core → Accès."
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Les étapes réseau envoient des données à un fournisseur et utilisent des crédits. Core peut autoriser une demande, cette exécution du workflow ou un accès permanent. Révoquez l’accès permanent dans Paramètres de Core → Accès.",
+    "Model reply timeout (5–180 seconds)": "Délai par réponse du modèle (5–180 secondes)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Chaque réponse du réseau dispose de son propre délai. Les continuations peuvent durer jusqu’à 15 minutes au total. Les parties terminées sont enregistrées dans Résultats du réseau."
   },
   "de": {
     ", and": "und",
@@ -1601,6 +1607,8 @@
     "KAI network · Auto research": "KAI-Netzwerk · Automatische Recherche",
     "KAI network · Auto outline": "KAI-Netzwerk · Automatische Gliederung",
     "KAI network · Auto writing": "KAI-Netzwerk · Automatisches Schreiben",
-    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Netzwerkschritte senden Eingaben an einen Anbieter und verbrauchen Credits. Core kann eine Anfrage, diesen Workflow-Durchlauf oder dauerhaften Zugriff erlauben. Widerruf unter Core-Einstellungen → Zugriff."
+    "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Netzwerkschritte senden Eingaben an einen Anbieter und verbrauchen Credits. Core kann eine Anfrage, diesen Workflow-Durchlauf oder dauerhaften Zugriff erlauben. Widerruf unter Core-Einstellungen → Zugriff.",
+    "Model reply timeout (5–180 seconds)": "Zeitlimit pro Modellantwort (5–180 Sekunden)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Für jede Netzwerkantwort gilt ein eigenes Zeitlimit. Fortsetzungen können insgesamt bis zu 15 Minuten dauern. Abgeschlossene Teile werden unter Netzwerkergebnisse gespeichert."
   }
 }

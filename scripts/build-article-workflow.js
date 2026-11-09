@@ -71,7 +71,7 @@ return [{topic:s.topic,title:s.title,target_words:s.target_words,sections:s.sect
  sources:[...s.sources,...cited],counts:[...s.counts,{heading:s.section.heading,target:s.section.word_count,actual:words}],
  total_words:s.counts.reduce((n,x)=>n+x.actual,0)+words,
  plan_text:s.sections.map(x=>"- **"+x.heading+"** — "+x.word_count+" words; "+x.points.join("; ")).join("\n"),
- sources_text:[...s.sources,...cited].map(x=>"["+x.id+"]: "+x.url+" — "+x.title).join("\n"),
+ sources_text:[...s.sources,...cited].map(x=>"["+x.id+"]: <"+x.url.replace(/[<>\s]/g,encodeURIComponent)+">").join("\n") + "\n\n" + [...s.sources,...cited].map(x=>"- ["+x.id+"] "+x.title.replace(/[\[\]<>\r\n]/g," ")).join("\n"),
  counts_text:[...s.counts,{heading:s.section.heading,target:s.section.word_count,actual:words}].map(x=>"- "+x.heading+": "+x.actual+" / "+x.target+" words").join("\n")}];` }, 520, 2050);
 add("output", "article", "Article, outline and sources", { text: "# {{item.title}}\n\n{{item.article}}\n\n## Sources\n\n{{item.sources_text}}\n\n---\n\n## Writing plan\n\n{{item.plan_text}}\n\n## Word counts\n\nTarget: {{item.target_words}}. Actual body words: {{item.total_words}}. Headings and source markers excluded. No QA or rewrite pass was run.\n\n{{item.counts_text}}", saveChat: false }, 120, 2250);
 for (const [a,b] of [["start","brief"],["brief","topic_sources"],["topic_sources","topic_researcher"],["topic_researcher","outline_agent"],["outline_agent","plan"],["plan","sections"],["section","section_sources"],["section_sources","evidence"],["evidence","section_researcher"],["section_researcher","section_writer"],["section_writer","collect"],["collect","sections"]]) link(a,b);

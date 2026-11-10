@@ -1,9 +1,15 @@
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), M = require("../plugin/workflow-model");
 const nodes = [], edges = [];
+const models = {
+  research: ["qwen25-32b", "deepseek-r1-32b", "phi-4", "qwen25-14b"],
+  outline: ["qwen25-32b", "phi-4", "qwen25-14b"],
+  writing: ["mistral-small-24b", "gemma3-27b", "qwen25-32b", "qwen25-14b"]
+};
+const policy = role => ({ model: "koinos-network:" + models[role][0], fallbackModels: models[role].slice(1).map(m => "koinos-network:" + m) });
 const add = (type, id, label, config, x = 120, y = nodes.length * 150 + 60) => nodes.push(M.node(type, id, { x, y }, config, label));
 const link = (a, b, port = "main") => edges.push(M.edge(a, b, port));
-const agent = (id, label, role, prompt, tokens) => add("agent", id, label, { model: "koinos-network:auto-" + role, profile: role === "outline" ? "planner" : role === "writing" ? "writer" : "researcher", prompt, maxTurns: 1, maxTokens: tokens, maxContinuations: 16, timeoutSeconds: 180, retries: 0, tools: [] });
+const agent = (id, label, role, prompt, tokens) => add("agent", id, label, { ...policy(role), profile: role === "outline" ? "planner" : role === "writing" ? "writer" : "researcher", prompt, maxTurns: 1, maxTokens: tokens, maxContinuations: 16, timeoutSeconds: 180, retries: 0, tools: [] });
 add("trigger", "start", "Enter topic and word count", { kind: "manual", inputFields: [{ name: "topic", type: "string", required: true }, { name: "word_count", type: "integer", required: true }] });
 add("code", "brief", "Set section word budgets", { source: String.raw`
 const topic = input.topic.trim(), total = input.word_count;
@@ -77,5 +83,5 @@ add("output", "article", "Article, outline and sources", { text: "# {{item.title
 for (const [a,b] of [["start","brief"],["brief","topic_sources"],["topic_sources","topic_researcher"],["topic_researcher","outline_agent"],["outline_agent","plan"],["plan","sections"],["section","section_sources"],["section_sources","evidence"],["evidence","section_researcher"],["section_researcher","section_writer"],["section_writer","collect"],["collect","sections"]]) link(a,b);
 link("sections","section","body"); link("sections","article","done");
 for (const [id,y] of [["section_researcher",1750],["section_writer",1900]]) Object.assign(nodes.find(n=>n.id===id).position,{x:520,y});
-const document = M.exportDocument({name:"Researched article · KAI network",description:"Workflows 0.3.6+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Live task-based KAI model selection; public web research; no QA stage or clarification questions. Credit review is required for each network request, including continuations. Word count is a target; actual counts are reported without an editing pass.",model:"koinos-network:auto-research",enabled:false,graph:{version:2,nodes,edges}});
+const document = M.exportDocument({name:"Researched article · KAI network",description:"Workflows 0.3.11+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Editable primary and ordered fallback models; public web research; no QA stage or clarification questions. Core credit consent applies to network requests and continuations. Word count is a target; actual counts are reported without an editing pass.",...policy("research"),enabled:false,graph:{version:2,nodes,edges}});
 fs.writeFileSync(path.join(__dirname,"../examples/researched-article.workflow.json"), JSON.stringify(document,null,2)+"\n");

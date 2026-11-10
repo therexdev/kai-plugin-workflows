@@ -400,7 +400,20 @@
     "KAI network · Auto writing": "Red KAI · Redacción automática",
     "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Los pasos de red envían datos a un proveedor y usan créditos. Core puede aprobar una solicitud, esta ejecución del flujo o el acceso continuo. Revoca el acceso continuo en Ajustes de Core → Acceso.",
     "Model reply timeout (5–180 seconds)": "Tiempo límite por respuesta del modelo (5–180 segundos)",
-    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Cada respuesta de red tiene su propio tiempo límite. Las continuaciones pueden durar hasta 15 minutos en total. Las partes completadas se guardan en Resultados de red."
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Cada respuesta de red tiene su propio tiempo límite. Las continuaciones pueden durar hasta 15 minutos en total. Las partes completadas se guardan en Resultados de red.",
+    "Run input": "Datos de ejecución",
+    "Required": "Obligatorio",
+    "Optional": "Opcional",
+    "Choose a value": "Elige un valor",
+    "True": "Verdadero",
+    "False": "Falso",
+    "Enter valid JSON.": "Introduce JSON válido.",
+    "Finish or cancel the existing run before starting another.": "Finaliza o cancela la ejecución existente antes de iniciar otra.",
+    "View active run": "Ver ejecución activa",
+    "Starting…": "Iniciando…",
+    "Enter a valid number for {0}.": "Introduce un número válido para {0}.",
+    "Enter run input: {0}": "Introduce el dato de ejecución: {0}",
+    "Run input {0} must be {1}.": "El dato de ejecución {0} debe ser de tipo {1}."
   },
   "pt-BR": {
     ", and": ", e",
@@ -803,7 +816,20 @@
     "KAI network · Auto writing": "Rede KAI · Redação automática",
     "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "As etapas de rede enviam dados a um provedor e usam créditos. O Core pode aprovar uma solicitação, esta execução do fluxo ou acesso contínuo. Revogue o acesso contínuo em Configurações do Core → Acesso.",
     "Model reply timeout (5–180 seconds)": "Tempo limite por resposta do modelo (5–180 segundos)",
-    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Cada resposta da rede tem seu próprio tempo limite. As continuações podem durar até 15 minutos no total. As partes concluídas são salvas em Resultados da rede."
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Cada resposta da rede tem seu próprio tempo limite. As continuações podem durar até 15 minutos no total. As partes concluídas são salvas em Resultados da rede.",
+    "Run input": "Entrada da execução",
+    "Required": "Obrigatório",
+    "Optional": "Opcional",
+    "Choose a value": "Escolha um valor",
+    "True": "Verdadeiro",
+    "False": "Falso",
+    "Enter valid JSON.": "Insira um JSON válido.",
+    "Finish or cancel the existing run before starting another.": "Conclua ou cancele a execução existente antes de iniciar outra.",
+    "View active run": "Ver execução ativa",
+    "Starting…": "Iniciando…",
+    "Enter a valid number for {0}.": "Insira um número válido para {0}.",
+    "Enter run input: {0}": "Insira a entrada da execução: {0}",
+    "Run input {0} must be {1}.": "A entrada da execução {0} deve ser do tipo {1}."
   },
   "fr": {
     ", and": ", et",
@@ -1206,7 +1232,20 @@
     "KAI network · Auto writing": "Réseau KAI · Rédaction automatique",
     "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Les étapes réseau envoient des données à un fournisseur et utilisent des crédits. Core peut autoriser une demande, cette exécution du workflow ou un accès permanent. Révoquez l’accès permanent dans Paramètres de Core → Accès.",
     "Model reply timeout (5–180 seconds)": "Délai par réponse du modèle (5–180 secondes)",
-    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Chaque réponse du réseau dispose de son propre délai. Les continuations peuvent durer jusqu’à 15 minutes au total. Les parties terminées sont enregistrées dans Résultats du réseau."
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Chaque réponse du réseau dispose de son propre délai. Les continuations peuvent durer jusqu’à 15 minutes au total. Les parties terminées sont enregistrées dans Résultats du réseau.",
+    "Run input": "Données d’exécution",
+    "Required": "Obligatoire",
+    "Optional": "Facultatif",
+    "Choose a value": "Choisissez une valeur",
+    "True": "Vrai",
+    "False": "Faux",
+    "Enter valid JSON.": "Saisissez du JSON valide.",
+    "Finish or cancel the existing run before starting another.": "Terminez ou annulez l’exécution en cours avant d’en lancer une autre.",
+    "View active run": "Voir l’exécution active",
+    "Starting…": "Démarrage…",
+    "Enter a valid number for {0}.": "Saisissez un nombre valide pour {0}.",
+    "Enter run input: {0}": "Saisissez la donnée d’exécution : {0}",
+    "Run input {0} must be {1}.": "La donnée d’exécution {0} doit être de type {1}."
   },
   "de": {
     ", and": "und",
@@ -1609,6 +1648,19 @@
     "KAI network · Auto writing": "KAI-Netzwerk · Automatisches Schreiben",
     "Network steps send input to a provider and use credits. Core can approve one request, this workflow run, or ongoing access. Revoke ongoing access in Core Settings → Access.": "Netzwerkschritte senden Eingaben an einen Anbieter und verbrauchen Credits. Core kann eine Anfrage, diesen Workflow-Durchlauf oder dauerhaften Zugriff erlauben. Widerruf unter Core-Einstellungen → Zugriff.",
     "Model reply timeout (5–180 seconds)": "Zeitlimit pro Modellantwort (5–180 Sekunden)",
-    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Für jede Netzwerkantwort gilt ein eigenes Zeitlimit. Fortsetzungen können insgesamt bis zu 15 Minuten dauern. Abgeschlossene Teile werden unter Netzwerkergebnisse gespeichert."
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Network results.": "Für jede Netzwerkantwort gilt ein eigenes Zeitlimit. Fortsetzungen können insgesamt bis zu 15 Minuten dauern. Abgeschlossene Teile werden unter Netzwerkergebnisse gespeichert.",
+    "Run input": "Eingabe für den Lauf",
+    "Required": "Erforderlich",
+    "Optional": "Optional",
+    "Choose a value": "Wert auswählen",
+    "True": "Wahr",
+    "False": "Falsch",
+    "Enter valid JSON.": "Gültiges JSON eingeben.",
+    "Finish or cancel the existing run before starting another.": "Beenden oder abbrechen Sie den vorhandenen Lauf, bevor Sie einen weiteren starten.",
+    "View active run": "Aktiven Lauf anzeigen",
+    "Starting…": "Wird gestartet…",
+    "Enter a valid number for {0}.": "Geben Sie für {0} eine gültige Zahl ein.",
+    "Enter run input: {0}": "Geben Sie die Eingabe für den Lauf ein: {0}",
+    "Run input {0} must be {1}.": "Die Eingabe {0} muss vom Typ {1} sein."
   }
 }

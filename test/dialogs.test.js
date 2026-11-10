@@ -34,7 +34,7 @@ test("workflow deletion never treats a pending or declined dialog as approval", 
 });
 
 test("closing the run form with X or Escape never starts a workflow", async () => {
-  const f = fixture(); await f.click("run", "saved-flow"); assert.match(f.host.innerHTML, /aria-label="Close dialog"/);
+  const f = fixture({ state: { workflows: [{ ...M.template("ask"), id: "saved-flow" }] } }); await f.click("run", "saved-flow"); assert.match(f.host.innerHTML, /aria-label="Close dialog"/);
   await f.click("closeModal"); assert.doesNotMatch(f.host.innerHTML, /wf-modal-backdrop/); assert.equal(f.calls.length, 0);
   await f.click("run", "saved-flow"); f.host.onkeydown({ key: "Escape" }); assert.doesNotMatch(f.host.innerHTML, /wf-modal-backdrop/); assert.equal(f.calls.length, 0);
 });

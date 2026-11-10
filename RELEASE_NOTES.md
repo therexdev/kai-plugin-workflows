@@ -1,4 +1,12 @@
-# Workflows 0.3.9
+# Workflows 0.3.10
+
+Fixes run controls appearing unresponsive when the article input is missing or a prior run is still active. Start failures now appear inside the run dialog and retain entered values. Workflows with declared inputs show separate fields with type validation, including topic and word count for researched articles.
+
+Run again restores the selected run’s original input for review and editing. Starting a run shows progress, prevents duplicate submissions and opens the new run with history filters cleared. History polling preserves open forms. An existing running or paused run can be opened from the dialog for review or cancellation; it is never silently replaced.
+
+Requires Core 0.7.25, which includes the network reply transport fix. Update Workflows from the in-app catalog. Existing workflows need no reimport. Verified with 75 plugin tests, browser checks and real Core native Start run / Run again checks using a synthetic profile and no paid operations.
+
+## Previous release: 0.3.9
 
 Fixes article agents timing out at 180 seconds while assembling several network replies. The configured model timeout now applies separately to each network reply, after the request reaches the front of the credit queue. Continuations have a 15-minute total response limit and keep the existing token and continuation budgets.
 

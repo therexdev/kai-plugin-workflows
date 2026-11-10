@@ -24,3 +24,7 @@ html,body{width:100%;height:100%;margin:0}body{display:block;overflow:hidden}.pl
 .wf-modal #wf-import-json{font-family:ui-monospace,Consolas,monospace;min-height:160px;max-height:40vh}
 .wf-modal [data-wf="importFile"]{margin-bottom:16px}
 .wf-import-error:empty{display:none}
+.wf-run-error:empty{display:none}
+.wf-run-error:not(:empty){padding:12px;border:1px solid currentColor;border-radius:8px;overflow-wrap:anywhere}
+.wf-modal input,.wf-modal select{background:#fff;color:#14284e;border:1px solid #dce5f2;border-radius:10px;font:13px/1.6 Inter,"Segoe UI",Arial,sans-serif}
+.wf-modal input:focus-visible,.wf-modal select:focus-visible{outline:2px solid #155eef;outline-offset:3px}

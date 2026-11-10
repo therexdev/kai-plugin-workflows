@@ -52,7 +52,7 @@
       return KaiI18n.html`<div><b>${esc(call.model)}</b>${used !== null ? KaiI18n.html`<p>${KaiI18n.content(KaiI18n.message`Credits used: ${used}`)}</p>` : ""}<pre>${esc(call.completion?.choices?.[0]?.message?.content || "")}</pre></div>`;
     }).join("")}</details>`;
   }
-  function runCard(r) { return KaiI18n.html`<details class="hub-card hub-run wf-run" data-run="${esc(r.id)}" ${["waiting", "running", "interrupted"].includes(r.status) ? "open" : ""}><summary><span><b>${esc(r.name)}</b><small>${date(r.startedAt)} · ${esc(r.trigger)}${KaiI18n.content(r.dryRun ? " · simulated preview" : "")}</small></span><span class="hub-badge ${esc(r.status)}">${KaiI18n.content(r.status)}</span></summary><div class="hub-run-body"><div class="hub-actions">${r.spec.graph ? btn("View on canvas", "runCanvas", r.id) : ""}${["waiting", "interrupted"].includes(r.status) && !r.inFlight ? btn("Review & resume", "resume", r.id, "primary") : ""}${r.status === "waiting" ? btn("Reject", "reject", r.id) : ""}${["running", "waiting", "interrupted"].includes(r.status) ? btn("Cancel run", "cancel", r.id) : btn("Run again", "run", r.workflowId)}</div>${r.pending ? KaiI18n.html`<div class="hub-pending"><b>Waiting for your decision</b><pre>${esc(JSON.stringify(r.pending, null, 2))}</pre></div>` : ""}${r.error ? KaiI18n.html`<p class="error">${esc(r.error)}</p>` : ""}${networkResults(r)}${r.steps.map((s, i) => KaiI18n.html`<details class="wf-run-step"><summary><span class="wf-step-status ${esc(s.status)}">${s.status === "completed" ? "✓" : s.status === "running" ? "◌" : "!"}</span>${i + 1}. ${esc(s.label)}<small>${KaiI18n.content(s.status)}${s.durationMs != null ? " · " + (s.durationMs / 1000).toFixed(1) + "s" : ""}${s.attempts > 1 ? " · " + s.attempts + " attempts" : ""}</small></summary>${s.frameId && s.frameId !== "root" ? KaiI18n.html`<p class="hub-help">${esc(s.frameId)}</p>` : ""}${s.input ? KaiI18n.html`<b>Input</b><pre>${esc(JSON.stringify(s.input, null, 2))}</pre>` : ""}<b>Output</b><pre>${esc(s.error || (s.type === "output" && s.items?.length ? s.items.map(v => v.text ?? JSON.stringify(v)).join("\n\n") : s.output) || "Running…")}</pre></details>`).join("")}</div></details>`; }
+  function runCard(r) { return KaiI18n.html`<details class="hub-card hub-run wf-run" data-run="${esc(r.id)}" ${["waiting", "running", "interrupted"].includes(r.status) ? "open" : ""}><summary><span><b>${esc(r.name)}</b><small>${date(r.startedAt)} · ${esc(r.trigger)}${KaiI18n.content(r.dryRun ? " · simulated preview" : "")}</small></span><span class="hub-badge ${esc(r.status)}">${KaiI18n.content(r.status)}</span></summary><div class="hub-run-body"><div class="hub-actions">${r.spec.graph ? btn("View on canvas", "runCanvas", r.id) : ""}${["waiting", "interrupted"].includes(r.status) && !r.inFlight ? btn("Review & resume", "resume", r.id, "primary") : ""}${r.status === "waiting" ? btn("Reject", "reject", r.id) : ""}${["running", "waiting", "interrupted"].includes(r.status) ? btn("Cancel run", "cancel", r.id) : btn("Run again", "runAgain", r.id)}</div>${r.pending ? KaiI18n.html`<div class="hub-pending"><b>Waiting for your decision</b><pre>${esc(JSON.stringify(r.pending, null, 2))}</pre></div>` : ""}${r.error ? KaiI18n.html`<p class="error">${esc(r.error)}</p>` : ""}${networkResults(r)}${r.steps.map((s, i) => KaiI18n.html`<details class="wf-run-step"><summary><span class="wf-step-status ${esc(s.status)}">${s.status === "completed" ? "✓" : s.status === "running" ? "◌" : "!"}</span>${i + 1}. ${esc(s.label)}<small>${KaiI18n.content(s.status)}${s.durationMs != null ? " · " + (s.durationMs / 1000).toFixed(1) + "s" : ""}${s.attempts > 1 ? " · " + s.attempts + " attempts" : ""}</small></summary>${s.frameId && s.frameId !== "root" ? KaiI18n.html`<p class="hub-help">${esc(s.frameId)}</p>` : ""}${s.input ? KaiI18n.html`<b>Input</b><pre>${esc(JSON.stringify(s.input, null, 2))}</pre>` : ""}<b>Output</b><pre>${esc(s.error || (s.type === "output" && s.items?.length ? s.items.map(v => v.text ?? JSON.stringify(v)).join("\n\n") : s.output) || "Running…")}</pre></details>`).join("")}</div></details>`; }
   function discoveries() { const suggestions = data.workflowState?.suggestions || [], settings = data.workflowState?.discovery || {}; return KaiI18n.html`<div class="wf-heading"><div><h2>Discover useful routines</h2><p>KAI can suggest workflows from your goals, personal notes, and connected apps. You choose what to build.</p></div></div>${networkControls()}<form class="wf-discover-form" data-wf-form="discover">${select("discoverModel", "Model", modelOptions(defaultModel()), defaultModel())}${check("discoverBrain", "Use my personal Brain notes and goals for suggestions", true)}<button class="primary" ${busy ? "disabled" : ""}>${KaiI18n.content(busy ? "Finding ideas…" : "Find suggestions")}</button></form><form class="wf-discover-form" data-wf-form="discoverySettings">${check("discoveryEnabled", "Suggest new routines automatically once a day", settings.enabled)}${select("discoveryModel", "Model for daily suggestions", modelOptions(settings.model || defaultModel()), settings.model || defaultModel())}${check("discoveryBrain", "Include my personal Brain notes and goals", settings.includeBrain)}<button>Save suggestion settings</button><p class="hub-help">Runs while KAI is open. Suggestions wait for your review and never enable a workflow automatically.${settings.lastAt ? " Last checked: " + date(settings.lastAt) : ""}</p>${settings.error ? KaiI18n.html`<p class="error">${esc(settings.error)}</p>` : ""}</form><div class="wf-templates">${suggestions.map(s => KaiI18n.html`<article class="hub-card"><span class="hub-badge">Suggested for you</span><h3>${esc(s.name)}</h3><p>${esc(s.request)}</p><p><b>Why:</b> ${esc(s.reason)}</p><div class="hub-actions">${btn("Build this", "buildSuggestion", s.id, "primary")}${btn("Dismiss", "dismiss", s.id)}</div></article>`).join("") || empty("Ideas start with your context", "Choose a model and find suggestions. Nothing is saved or enabled until you review it.")}</div>`; }
   function builder() {
     const report = M.validateGraph(draft.graph), last = data.runs.find(r => r.id === runId), readOnly = !!runId;
@@ -114,7 +114,46 @@
   }
   function modalHTML() {
     if (modal.kind === "import") return KaiI18n.html`<div class="wf-modal-backdrop"><section class="wf-modal" role="dialog" aria-modal="true" aria-label="Import workflow"><div class="wf-heading"><h3>Import workflow</h3><button type="button" class="wf-dialog-close" data-wf="closeModal" aria-label="Close dialog" title="Close">×</button></div><form data-wf-form="import"><p class="hub-help">Choose a JSON file or paste a workflow from chat. It will be added as a new draft with automatic triggers off.</p>${btn("Choose JSON file", "importFile")}<label class="wf-field"><span>Or paste workflow JSON</span><textarea name="workflowJSON" id="wf-import-json" rows="10" spellcheck="false" placeholder="Paste workflow JSON here">${esc(modal.text || "")}</textarea></label><p class="hub-help">After importing, review the nodes and choose your model, connections and any sub-workflows before saving.</p><p class="wf-import-error error" role="alert">${KaiI18n.content(modal.error || "")}</p><button class="primary">Import as draft</button></form></section></div>`;
-    const w = data.workflows.find(w => w.id === modal.id); return KaiI18n.html`<div class="wf-modal-backdrop"><section class="wf-modal" role="dialog" aria-modal="true" aria-label="Start workflow"><div class="wf-heading"><h3>${esc(w?.name || "Start workflow")}</h3><button type="button" class="wf-dialog-close" data-wf="closeModal" aria-label="Close dialog" title="Close">×</button></div><form data-wf-form="run"><label class="wf-field"><span>Run input (optional)</span><textarea name="input" rows="6" placeholder="A topic, prompt, or JSON input"></textarea></label>${(w?.graph?.nodes.find(n => n.type === "trigger")?.config.inputFields || []).length ? KaiI18n.html`<p class="hub-help">Enter JSON with these fields: ${w.graph.nodes.find(n => n.type === "trigger").config.inputFields.map(f => esc(f.name + " (" + f.type + (f.required ? ", required" : "") + ")")).join(", ")}</p>` : ""}<p class="hub-help">${KaiI18n.content(modal.preview ? "Preview uses sample outputs for model, app, and memory nodes. No requests or changes are made." : "Writes and Brain changes pause for your review.")}</p><button class="primary">${KaiI18n.content(modal.preview ? "Start preview" : "Start run")}</button></form></section></div>`; }
+    const w = data.workflows.find(w => w.id === modal.id), active = data.runs.find(r => r.workflowId === modal.id && ["running", "waiting", "interrupted"].includes(r.status));
+    return KaiI18n.html`<div class="wf-modal-backdrop"><section class="wf-modal" role="dialog" aria-modal="true" aria-label="Start workflow"><div class="wf-heading"><h3>${esc(w?.name || "Start workflow")}</h3><button type="button" class="wf-dialog-close" data-wf="closeModal" aria-label="Close dialog" title="Close" ${modal.submitting ? "disabled" : ""}>×</button></div><form data-wf-form="run" novalidate aria-busy="${!!modal.submitting}">${modal.fields.length ? modal.fields.map((f, i) => runField(f, i)).join("") : KaiI18n.html`<label class="wf-field"><span>${KaiI18n.content(w?.graph?.nodes.find(n => n.type === "trigger")?.config.inputFields?.length ? "Run input" : "Run input (optional)")}</span><textarea name="input" data-run-input rows="6" placeholder="A topic, prompt, or JSON input">${esc(modal.text)}</textarea></label>`}${active ? KaiI18n.html`<p class="hub-help">Finish or cancel the existing run before starting another.</p>${btn("View active run", "activeRun", active.id)}` : ""}<p class="hub-help">${KaiI18n.content(modal.preview ? "Preview uses sample outputs for model, app, and memory nodes. No requests or changes are made." : "Writes and Brain changes pause for your review.")}</p><p class="wf-run-error error" role="alert" tabindex="-1">${KaiI18n.content(modal.error || "")}</p><button type="submit" class="primary" ${modal.submitting ? "disabled" : ""}>${KaiI18n.content(modal.submitting ? "Starting…" : modal.preview ? "Start preview" : "Start run")}</button></form></section></div>`;
+  }
+  function startDialog(id, preview, previous, origin) {
+    const w = data.workflows.find(w => w.id === id);
+    if (!w) throw Error("Workflow no longer exists.");
+    const fields = w.graph?.nodes.find(n => n.type === "trigger")?.config.inputFields || [];
+    const supported = fields.every(f => ["string", "number", "integer", "boolean", "object", "array"].includes(f.type));
+    const structured = previous && typeof previous === "object" && !Array.isArray(previous);
+    modal = { kind: "run", id, preview, origin, fields: supported ? fields : [], values: Object.create(null), base: structured ? clone(previous) : {}, text: typeof previous === "string" ? previous : previous === undefined ? "" : JSON.stringify(previous, null, 2) };
+    for (const f of modal.fields) { const value = structured ? previous[f.name] : undefined; modal.values[f.name] = value == null ? "" : typeof value === "string" ? value : JSON.stringify(value, null, 2); }
+    draw(); host.querySelector('.wf-modal input,.wf-modal textarea,.wf-modal select')?.focus();
+  }
+  function runField(f, i) {
+    const value = modal.values[f.name] ?? "", name = "runInput" + i, attrs = `name="${name}" data-run-field="${i}" ${f.required ? "required" : ""}`;
+    let control;
+    if (["number", "integer"].includes(f.type)) control = KaiI18n.html`<input ${attrs} type="number" step="${f.type === "integer" ? "1" : "any"}" value="${esc(value)}"/>`;
+    else if (f.type === "boolean") control = KaiI18n.html`<select ${attrs}><option value="" ${value === "" ? "selected" : ""}>Choose a value</option><option value="true" ${value === "true" ? "selected" : ""}>True</option><option value="false" ${value === "false" ? "selected" : ""}>False</option></select>`;
+    else control = KaiI18n.html`<textarea ${attrs} rows="${f.type === "string" ? 2 : 4}" spellcheck="${f.type === "string"}">${esc(value)}</textarea>`;
+    return KaiI18n.html`<label class="wf-field"><span>${esc(f.name)} · ${KaiI18n.content(f.required ? "Required" : "Optional")}</span>${control}${["object", "array"].includes(f.type) ? KaiI18n.html`<small>Enter valid JSON.</small>` : ""}</label>`;
+  }
+  function readRunInput(form, m) {
+    if (!m.fields.length) return m.text = form.elements.input.value;
+    const values = { ...m.base };
+    // Capture every field before validating, so even a failed submission keeps edits.
+    for (const [i, f] of m.fields.entries()) m.values[f.name] = form.elements["runInput" + i].value;
+    for (const [i, f] of m.fields.entries()) {
+      const raw = m.values[f.name], el = form.elements["runInput" + i];
+      if (el.validity?.badInput) throw Error(KaiI18n.t(KaiI18n.message`Enter a valid number for ${f.name}.`));
+      if (!raw.trim()) { if (f.required) throw Error(KaiI18n.t(KaiI18n.message`Enter run input: ${f.name}`)); delete values[f.name]; continue; }
+      let value = raw;
+      if (f.type !== "string") {
+        try { value = ["number", "integer"].includes(f.type) ? Number(raw) : JSON.parse(raw); } catch { throw Error(KaiI18n.t(KaiI18n.message`Run input ${f.name} must be ${f.type}.`)); }
+        const valid = f.type === "integer" ? Number.isInteger(value) : f.type === "number" ? Number.isFinite(value) : f.type === "array" ? Array.isArray(value) : f.type === "object" ? value !== null && typeof value === "object" && !Array.isArray(value) : typeof value === f.type;
+        if (!valid) throw Error(KaiI18n.t(KaiI18n.message`Run input ${f.name} must be ${f.type}.`));
+      }
+      Object.defineProperty(values, f.name, { value, enumerable: true, writable: true, configurable: true });
+    }
+    return values;
+  }
   function paint() {
     const stage = host.querySelector(".wf-stage"); if (!stage || !draft) return;
     // CSP forbids HTML style attributes. Set validated geometry through CSSOM.
@@ -134,6 +173,10 @@
   function input(e) {
     const el = e.target;
     if (el.id === "wf-import-json" && modal?.kind === "import") { modal.text = el.value; return; }
+    if (modal?.kind === "run") {
+      if (el.dataset.runField !== undefined) { const f = modal.fields[Number(el.dataset.runField)]; if (f) modal.values[f.name] = el.value; return; }
+      if (el.hasAttribute?.("data-run-input")) { modal.text = el.value; return; }
+    }
     if (el.id === "wf-filter") { filter = el.value; const position = el.selectionStart; draw(); const input = host.querySelector("#wf-filter"); input.focus(); input.setSelectionRange(position, position); return; }
     if (el.id === "wf-node-search") { for (const b of host.querySelectorAll('[data-wf="add"]')) b.hidden = !b.textContent.toLowerCase().includes(el.value.toLowerCase()); return; }
     if (!el.dataset.field || !draft || runId || /^(assist|discover|link|run)/.test(el.dataset.field)) return;
@@ -158,7 +201,7 @@
   async function click(e) {
     const button = e.target.closest("[data-wf]");
     if (!button) { const n = e.target.closest("[data-node]"); if (n && !e.target.closest("input,textarea,select")) { selected = n.dataset.node; inspector = "node"; draw(); } return; }
-    const action = button.dataset.wf, id = button.dataset.id; if (busy && !["cancel", "closeModal"].includes(action)) return;
+    const action = button.dataset.wf, id = button.dataset.id, wasBusy = busy; if (busy && !["cancel", "closeModal"].includes(action)) return;
     try {
       if (runId && ["add", "duplicateNode", "deleteNode", "removeEdge", "addEdge", "connectTo", "connectFrom", "undo", "redo", "applyJSON", "save", "saveDraft", "arrange"].includes(action)) return notice("This canvas is a saved run snapshot. Open the workflow to edit it.");
       if (action === "networkModels") { busy = true; notice("Loading network models…"); const result = await api.manage("workflowModels"); data.models = result.models; data.networkModels = result.networkModels; draw(); notice(result.networkModels.error || "Network models refreshed.", !!result.networkModels.error); }
@@ -194,7 +237,8 @@
         const saved = await api.manage("exportWorkflow", action === "exportCanvas" ? { workflow: clone(draft) } : { id });
         if (saved) notice("Workflow JSON exported. The file includes prompts and node settings; review them before sharing.");
       }
-      if (action === "run" || action === "preview") { if (draft && !runId && dirty()) throw Error("Save the changes before running this workflow."); modal = { id, preview: action === "preview" }; draw(); host.querySelector('.wf-modal textarea')?.focus(); }
+      if (["run", "preview", "runAgain"].includes(action)) { if (draft && !runId && dirty()) throw Error("Save the changes before running this workflow."); const previous = action === "runAgain" ? data.runs.find(r => r.id === id) : null; startDialog(previous?.workflowId || id, action === "preview", previous?.input, { action, id }); }
+      if (action === "activeRun") { modal = null; draft = null; runId = ""; runFilter = data.runs.find(r => r.id === id)?.workflowId || ""; runStatus = ""; await api.navigate("runs"); host.querySelector(`[data-run="${id}"]`)?.setAttribute("open", ""); }
       if (action === "closeModal") closeModal();
       if (action === "history") { draft = null; runFilter = id; await api.navigate("runs"); }
       if (["runCanvas", "selectRun"].includes(action)) { const run = data.runs.find(r => r.id === id); open(run.spec); runId = id; inspector = "runs"; draw(); fit(); }
@@ -209,7 +253,7 @@
       if (action === "copyExpr") { const text = "=nodes." + id + ".text"; await window.kai.call("workflows.copyText", { text }); notice(KaiI18n.message`Copied ${text}`); }
       if (action === "dismiss") { await api.manage("workflowDismiss", { id }); await refresh(); draw(); }
       if (action === "buildSuggestion") { const suggestion = data.workflowState.suggestions.find(s => s.id === id); open(M.template(suggestion.template, defaultModel(), data.connections.find(c => c.enabled))); draft.name = suggestion.name; inspector = "copilot"; draw(); host.querySelector('[data-field="assistRequest"]').value = suggestion.request; }
-    } catch (error) { transferError(error); } finally { busy = false; poll(); }
+    } catch (error) { transferError(error); } finally { if (!wasBusy) busy = false; poll(); }
   }
   function connect(from, to, port = "main", input = "main") { if (draft.graph.nodes.find(n => n.id === to)?.type === "trigger") throw Error("Connect to an action or logic node, not the trigger."); const edge = M.edge(from, to, port, input || "main"); if (draft.graph.edges.some(e => e.id === edge.id)) throw Error("These ports are already connected."); commit(() => draft.graph.edges.push(edge)); }
   async function imported(w) {
@@ -217,7 +261,7 @@
     notice("Imported as a new draft. Choose your model and review the nodes before saving.");
   }
   function transferError(error) {
-    if (modal?.kind === "import") { modal.error = error.message; draw(); }
+    if (modal) { modal.error = error.message; modal.submitting = false; draw(); host.querySelector('.wf-modal [role="alert"]')?.focus(); }
     else notice(error.message, true);
   }
   async function submit(e) {
@@ -226,7 +270,14 @@
     try {
       const type = form.dataset.wfForm, get = key => form.querySelector(`[data-field="${key}"]`);
       if (type === "import") { const text = form.elements.workflowJSON.value; modal.text = text; const w = await api.manage("importWorkflow", { text }); await imported(w); }
-      if (type === "run") { const m = modal, input = form.elements.input.value; const result = await api.manage(m.preview ? "workflowPreview" : "run", { id: m.id, input }); modal = null; await refresh(); draft = null; runId = ""; runFilter = m.id; await api.navigate("runs"); notice((m.preview ? KaiI18n.message(["Preview started with simulated capability outputs."]) : KaiI18n.message(["Workflow started."]))); }
+      if (type === "run") {
+        const m = modal, input = readRunInput(form, m); m.submitting = true; m.error = ""; draw();
+        const result = await api.manage(m.preview ? "workflowPreview" : "run", { id: m.id, input });
+        modal = null; draft = null; runId = ""; runFilter = m.id; runStatus = ""; draw();
+        await api.navigate("runs");
+        const card = host.querySelector(`[data-run="${typeof result === "string" ? result : result.id}"]`); card?.setAttribute("open", ""); card?.scrollIntoView?.({ block: "nearest" });
+        notice((m.preview ? KaiI18n.message(["Preview started with simulated capability outputs."]) : KaiI18n.message(["Workflow started."])));
+      }
       if (type === "assist") { notice("KAI is designing the flow…"); proposal = await api.manage("workflowAssist", { request: get("assistRequest").value, model: get("assistModel").value, workflow: draft }); draw(); notice("Review the proposed changes, then apply them to the canvas."); }
       if (type === "discoverySettings") { await api.manage("workflowDiscoverySettings", { enabled: get("discoveryEnabled").checked, model: get("discoveryModel").value, includeBrain: get("discoveryBrain").checked }); await refresh(); draw(); }
       if (type === "discover") { notice("Looking for useful routines…"); await api.manage("workflowDiscover", { model: get("discoverModel").value, includeBrain: get("discoverBrain").checked }); await refresh(); draw(); }
@@ -245,8 +296,9 @@
   }
   function wheel(e) { e.preventDefault(); if (e.ctrlKey || e.metaKey) { const old = zoom, rect = e.currentTarget.getBoundingClientRect(), x = e.clientX - rect.left, y = e.clientY - rect.top; zoom = Math.max(.18, Math.min(1.8, zoom * (e.deltaY < 0 ? 1.08 : .92))); pan = { x: x - (x - pan.x) * zoom / old, y: y - (y - pan.y) * zoom / old }; } else { pan.x -= e.deltaX; pan.y -= e.deltaY; } paint(); }
   function closeModal() {
+    if (modal?.submitting) return;
     const previous = modal; modal = null; draw();
-    if (previous) [...host.querySelectorAll("[data-wf]")].find(button => previous.kind === "import" ? button.dataset.wf === "import" : button.dataset.id === previous.id && button.dataset.wf === (previous.preview ? "preview" : "run"))?.focus();
+    if (previous) [...host.querySelectorAll("[data-wf]")].find(button => previous.kind === "import" ? button.dataset.wf === "import" : button.dataset.id === previous.origin.id && button.dataset.wf === previous.origin.action)?.focus();
   }
   function keydown(e) {
     if (e.key === "Escape") { linking = null; if (modal) closeModal(); else draw(); return; }
@@ -257,13 +309,14 @@
       else if (first && !e.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement))) { e.preventDefault(); first.focus(); }
       return;
     }
-    if (!draft || e.target.matches("input,textarea,select") || runId) return;
+    if (modal || !draft || e.target.matches("input,textarea,select") || runId) return;
     if ((e.ctrlKey || e.metaKey) && ["z", "y"].includes(e.key.toLowerCase())) { e.preventDefault(); const action = e.key.toLowerCase() === "y" || e.shiftKey ? "redo" : "undo"; host.querySelector(`[data-wf="${action}"]`)?.click(); }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); host.querySelector('[data-wf="deleteNode"]')?.click(); }
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) && currentNode()) { e.preventDefault(); commit(() => { const p = currentNode().position; p.x = Math.max(0, p.x + (e.key === "ArrowRight" ? 20 : e.key === "ArrowLeft" ? -20 : 0)); p.y = Math.max(0, p.y + (e.key === "ArrowDown" ? 20 : e.key === "ArrowUp" ? -20 : 0)); }); }
   }
-  function poll() { clearTimeout(timer); if (!host?.isConnected || host.closest('[hidden]')) return; timer = setTimeout(async () => { if (!host?.isConnected || host.closest('[hidden]')) return; if (!busy && (section === "runs" || runId || inspector === "runs" && draft)) { try { const before = JSON.stringify(data.runs); await refresh(); if (before !== JSON.stringify(data.runs) && !host.querySelector("input:focus,textarea:focus,select:focus")) { const opened = [...host.querySelectorAll("details[open]")].map(el => el.dataset.run).filter(Boolean); draw(); for (const id of opened) host.querySelector(`[data-run="${id}"]`)?.setAttribute("open", ""); } } catch { /* keep the last view */ } } poll(); }, 2000); }
+  function poll() { clearTimeout(timer); if (!host?.isConnected || host.closest('[hidden]')) return; timer = setTimeout(async () => { if (!host?.isConnected || host.closest('[hidden]')) return; if (!busy && !modal && (section === "runs" || runId || inspector === "runs" && draft)) { try { const before = JSON.stringify(data.runs); await refresh(); if (!busy && !modal && before !== JSON.stringify(data.runs) && !host.querySelector("input:focus,textarea:focus,select:focus")) { const opened = [...host.querySelectorAll("details[open]")].map(el => el.dataset.run).filter(Boolean); draw(); for (const id of opened) host.querySelector(`[data-run="${id}"]`)?.setAttribute("open", ""); } } catch { /* keep the last view */ } } poll(); }, 2000); }
   async function canLeave() {
+    if (modal?.submitting) return false;
     if (!dirty() || runId) return true;
     const reviewed = draft, snapshot = JSON.stringify(draft);
     const approved = await window.kai.dialogs.confirm(KaiI18n.t(KaiI18n.message(["Discard unsaved workflow changes?"])));

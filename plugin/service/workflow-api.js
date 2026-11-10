@@ -40,8 +40,8 @@ function create(ctx) {
     const nodes = [Model.node("trigger", "start")], edges = [];
     for (const [index, step] of input.steps.entries()) {
       let type = step.type, config;
-      if (type === "saved_agent") { const agent = agents().find(a => a.id === step.agentId); if (!agent) throw new CompanionError("Select a saved agent."); type = "agent"; config = { model: agent.model, instructions: agent.instructions, profile: agent.name, prompt: step.text || "{{previous}}" }; }
-      else if (type === "agent") config = { model: step.model || input.model, prompt: step.text || step.prompt || "{{input}}" };
+      if (type === "saved_agent") { const agent = agents().find(a => a.id === step.agentId); if (!agent) throw new CompanionError("Select a saved agent."); type = "agent"; config = { ...Model.modelPolicy(agent), instructions: agent.instructions, profile: agent.name, prompt: step.text || "{{previous}}" }; }
+      else if (type === "agent") config = { ...Model.modelPolicy(step.model ? step : input), prompt: step.text || step.prompt || "{{input}}" };
       else if (type === "sub_workflow") config = { workflowId: step.workflowId };
       else config = { ...(step.config || {}), ...(step.text !== undefined ? { text: step.text } : {}) };
       const node = Model.node(type, "step" + (index + 1), { x: 80, y: (index + 1) * 150 }, config, step.label || Model.meta(type)?.name || type);
@@ -63,8 +63,8 @@ function create(ctx) {
         case "export": return { schema: 1, runtimeVersion: 2, workflow: require("./workflow-transfer").exportWorkflow(definition(input.id)).document.workflow };
         case "agents": return agents();
         case "agentSave": {
-          const value = { name: text(input.name, 100, "Agent name"), model: text(input.model, 200, "Model"), instructions: text(input.instructions, 4000, "Instructions") };
-          if (!require("./workflow-inference").networkModel(value.model) && !ctx.models().some(m => m.alias === value.model && m.status === "ready" && !value.model.startsWith("desktop:"))) throw new CompanionError("Choose an installed local model or a KAI network model.");
+          const value = { name: text(input.name, 100, "Agent name"), ...Model.modelPolicy(input), instructions: text(input.instructions, 4000, "Instructions") };
+          if (!Model.modelOrder(value).some(model => require("./workflow-inference").networkModel(model) || ctx.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("Choose an installed local model or a KAI network model.");
           return store().change(d => { d.workflowAgents ||= []; const old = d.workflowAgents.find(a => a.id === input.id); if (input.id && !old) throw new CompanionError("Agent no longer exists."); const saved = { ...value, id: old?.id || id(), updatedAt: Date.now() }; if (old) d.workflowAgents[d.workflowAgents.indexOf(old)] = saved; else d.workflowAgents.push(saved); return saved; });
         }
         case "agentRemove": return store().change(d => { d.workflowAgents = (d.workflowAgents || []).filter(a => a.id !== input.id); return { removed: true }; });

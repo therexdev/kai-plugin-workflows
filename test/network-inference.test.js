@@ -44,7 +44,7 @@ test("Core consent is reused for every continuation with the same workflow run i
   assert.equal(scopes.length, 2);
 });
 
-test("automatic tasks refresh and reselect only after Core confirms generation never started", async t => {
+test("configured fallbacks refresh and advance in order only after Core confirms generation never started", async t => {
   const f = setup(t), requests = [], scopes = []; let refreshes = 0;
   f.api.network.models = async () => { refreshes++; return [
     { model: "qwen25-32b", available: true, maxOutput: 256 },
@@ -55,22 +55,22 @@ test("automatic tasks refresh and reselect only after Core confirms generation n
     if (requests.length === 1) throw Object.assign(Error("Provider left"), { code: "network-model-unavailable", safeToRetry: true });
     return { choices: [{ message: { content: "Researched answer" }, finish_reason: "stop" }] };
   };
-  assert.equal(await f.inference.run({ model: "koinos-network:auto-research", prompt: "Research", runId: "run-reselect", workflowName: "Article" }), "Researched answer");
+  assert.equal(await f.inference.run({ model: "koinos-network:qwen25-32b", fallbackModels: ["koinos-network:phi-4"], prompt: "Research", runId: "run-reselect", workflowName: "Article" }), "Researched answer");
   assert.equal(refreshes, 2); assert.deepEqual(requests.map(r => r.model), ["koinos-network:qwen25-32b", "koinos-network:phi-4"]);
   assert.deepEqual(requests.map(r => r.max_tokens), [256, 64]);
   assert.deepEqual(scopes, [{ id: "run-reselect", name: "Article" }, { id: "run-reselect", name: "Article" }]);
   assert.equal(f.saved.length, 1); assert.equal(f.saved[0].model, "koinos-network:phi-4");
 });
 
-test("stale availability retries are bounded and keep the task's best freshly eligible model", async t => {
+test("stale availability refreshes the selected model once before stopping", async t => {
   const f = setup(t); let attempts = 0, refreshes = 0;
   f.api.network.models = async () => { refreshes++; return [{ model: "phi-4", available: true, maxOutput: 64 }]; };
   f.api.wallet.complete = async () => { attempts++; throw Object.assign(Error("Availability expired"), { code: "network-models-stale", safeToRetry: true }); };
-  await assert.rejects(f.inference.run({ model: "koinos-network:auto-outline", prompt: "Outline" }), /Availability expired/);
-  assert.equal(attempts, 3); assert.equal(refreshes, 3); assert.equal(f.saved.length, 0);
+  await assert.rejects(f.inference.run({ model: "koinos-network:phi-4", prompt: "Outline" }), /Availability expired/);
+  assert.equal(attempts, 2); assert.equal(refreshes, 2); assert.equal(f.saved.length, 0);
 });
 
-test("automatic selection never retries an ambiguous outcome, an explicit model, or a partial response", async t => {
+test("fallback selection never retries an ambiguous outcome, a single model, or a partial response", async t => {
   for (const scenario of ["unknown", "code-only", "explicit", "partial", "cancel", "privacy", "no-provider"]) {
     const f = setup(t); let attempts = 0;
     const c = new AbortController();
@@ -85,7 +85,7 @@ test("automatic selection never retries an ambiguous outcome, an explicit model,
       if (!["unknown", "code-only"].includes(scenario)) error.safeToRetry = true;
       throw error;
     };
-    await assert.rejects(f.inference.run({ model: scenario === "explicit" ? ALIAS : "koinos-network:auto-research", prompt: "Research", maxContinuations: 2, signal: c.signal }));
+    await assert.rejects(f.inference.run({ model: ALIAS, fallbackModels: scenario === "explicit" ? [] : ["koinos-network:other-selected"], prompt: "Research", maxContinuations: 2, signal: c.signal }));
     assert.equal(attempts, scenario === "partial" ? 2 : 1, scenario);
     assert.equal(f.saved.length, scenario === "partial" ? 1 : 0, scenario);
     assert.equal(f.localCalls.length, 0);
@@ -145,7 +145,7 @@ test("network-only and mixed workflows survive JSON transfer and execute with ex
   const f = setup(t, { networkOnly: true }), app = create(f.api); t.after(() => app.dispose());
   const flow = Model.template("ask", ALIAS), text = JSON.stringify(Model.exportDocument(flow));
   const draft = await app.call("workflows.importWorkflow", { text });
-  assert.equal(draft.model, ALIAS); assert.equal(draft.graph.nodes[1].config.model, ALIAS); assert.equal(f.calls.length, 0);
+  assert.equal(draft.model, ALIAS); assert.equal(draft.graph.nodes[1].config.model, ""); assert.equal(f.calls.length, 0);
   const models = await app.call("workflows.workflowModels"); assert.equal(models.models.length, 1);
   const saved = await app.call("workflows.workflow", draft), run = await app.call("workflows.run", { id: saved.id, input: "No local model installed" });
   const r = await terminal(app, run.id); assert.equal(r.status, "completed", r.error); assert.equal(r.networkCalls[0].model, ALIAS);

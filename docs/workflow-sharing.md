@@ -81,9 +81,28 @@ Use one trigger, 1–60 nodes, and at most 160 edges. Node IDs must start with a
 
 For compatibility, the importer also accepts older plain KAI workflow definitions, legacy `steps` documents, the existing `{ "schema": 1, "runtimeVersion": 2, "workflow": ... }` API envelope, and the previously supported OpenHuman `flow` format. New file exports use `kai.workflow` version 1. The `workflows.export` API keeps its existing envelope but now returns a definition without runtime state. The `exportService` API used by Agent Network is unchanged.
 
+## Primary and fallback models
+
+Workflows 0.3.11 accepts `model` and `fallbackModels` on the workflow and on each Agent node's `config`:
+
+```json
+{
+  "model": "koinos-network:qwen25-14b",
+  "fallbackModels": ["koinos-network:phi-4", "local-model-alias"]
+}
+```
+
+Use exact IDs from Core's model catalog. The primary is tried first, followed by up to 15 distinct fallback IDs in array order. Local and network IDs can be mixed; network use always goes through Core credit consent. Models outside this list are never added automatically. Agent `model: ""` with no fallbacks inherits the whole workflow order; an explicit Agent model uses only that node's fallbacks. Loops retain the parent order; sub-workflows retain their own saved order. The same fields are accepted by `agentSave` and workflow assistance APIs.
+
+In the builder, choose a primary, add fallbacks, use the up/down controls to reorder them, and remove individual choices. Model availability is checked when executing. A currently unavailable primary does not prevent saving when another configured local model is ready or a network model is selected. If all choices are unavailable, the node reports failure.
+
+Fallback advances only before generation: when a selected model is absent/unavailable, or Core returns an explicit safe-to-retry availability code. A stale observation can be refreshed once. Consent rejection, credit failures, timeouts, uncertain paid outcomes and a response that already delivered a part stop the operation; they never cause a new generation on another model. Network-capable nodes do not use generic node retries.
+
+Imports/exports preserve primary and fallback order. Old `koinos-network:auto-research`, `auto-outline` and `auto-writing` choices migrate to explicit lists with their previous known-model ordering; new models must be added explicitly. Updating saved definitions leaves prior run snapshots and results intact.
+
 ## Starter workflows
 
-Workflows **0.3.6** also includes [Researched article](../examples/researched-article.workflow.json). Give it `{"topic":"Your article topic","word_count":1800}`. It fetches web evidence and uses automatic task-specific network routing for topic research, outlining, and a researcher/writer pair per section. See [setup, credit reviews and limits](article-workflow.md).
+Workflows **0.3.11** includes [Researched article](../examples/researched-article.workflow.json). Give it `{"topic":"Your article topic","word_count":1800}`. It fetches web evidence and uses explicit primary and fallback network models for topic research, outlining, and a researcher/writer pair per section. See [setup, credit reviews and limits](article-workflow.md).
 
 | File | Input to paste when running | Result |
 | --- | --- | --- |

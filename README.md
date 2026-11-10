@@ -22,7 +22,7 @@ Workflows 0.3.5 adds visible **Import JSON** and **Export JSON** controls, file 
 
 ## Checks
 
-Workflows 0.3.6 includes an [importable researched-article workflow](examples/researched-article.workflow.json): topic discovery, a budgeted outline, and separate research and writing agents for every section. It chooses currently eligible network models by task preference, reads public source excerpts, and assembles a cited draft without a QA pass. See [article workflow usage and limits](docs/article-workflow.md).
+Workflows 0.3.6 includes an [importable researched-article workflow](examples/researched-article.workflow.json): topic discovery, a budgeted outline, and separate research and writing agents for every section. It tries configured primary and fallback network models in order, reads public source excerpts, and assembles a cited draft without a QA pass. See [article workflow usage and limits](docs/article-workflow.md).
 
 Run `npm test`. Tests cover the preserved UI, actual plugin-owned engine behavior, independent encrypted state, provider-owned review and missing-service failures. Workflows additionally tests bounded JavaScript, graph execution and a cross-plugin integration when the sibling Brain/Connections repos are present. These are synthetic local checks, not live provider/OAuth or native operating-system verification.
 
@@ -49,3 +49,5 @@ Workflows 0.3.7 uses Core 0.7.23 credit consent: **Allow for Workflow** authoriz
 Workflows 0.3.8 with Core 0.7.24 refreshes and reselects automatic network models when Core confirms no generation was dispatched. It tries at most three selections and preserves explicit model choices, partial answers and credit recovery. Update Core first, then Workflows; existing article workflow imports need no changes.
 
 Workflows 0.3.9 applies a graph agent’s model timeout to each network reply after it leaves the credit queue. Continuations have a 15-minute total response deadline, with the existing generation budget. Completed parts remain in Network results; a timed-out request is never automatically retried. Existing article workflows do not need to be reimported.
+
+Workflows 0.3.11 replaces the three task-specific Auto entries with **Primary model** and ordered **Fallback models** controls in workflow settings and Agent nodes. Choose local or network models, reorder/remove fallbacks, or inherit the workflow order. JSON and public services preserve the same `model` / `fallbackModels` fields. Existing task presets migrate to editable explicit lists without changing run history. Safe availability fallback never restarts an uncertain paid request or a partial response. See [configuration and execution rules](docs/workflow-sharing.md#primary-and-fallback-models).

@@ -1,6 +1,6 @@
 # Researched article workflow
 
-Requires **Workflows 0.3.6** and Core 0.7.17+. Import `examples/researched-article.workflow.json` using **My workflows → Import JSON**, validate, and save. Run with:
+Requires **Workflows 0.3.11** and Core 0.7.25+. Import `examples/researched-article.workflow.json` using **My workflows → Import JSON**, validate, and save. Run with:
 
 ```json
 {"topic":"How community solar works for renters","word_count":1800}
@@ -18,9 +18,13 @@ The writing target excludes headings, bibliography and source markers. Model pro
 
 ## Model selection
 
-The new model choices are `koinos-network:auto-research`, `koinos-network:auto-outline` and `koinos-network:auto-writing`. They are routing policies, not provider model IDs. Before each agent begins, Workflows refreshes Core's authenticated catalog and selects only a model Core marks available to this account. Research, outlining and prose use different documented preference orders in `plugin/service/workflow-routing.js`. These are practical task heuristics, not measured benchmark rankings. Unknown live models remain fallback candidates. There is no local-model fallback.
+The example contains explicit primary models and ordered fallback lists. Research starts with Qwen 2.5 32B, then DeepSeek R1 32B, Phi-4 and Qwen 2.5 14B. Outlining starts with Qwen 2.5 32B, then Phi-4 and Qwen 2.5 14B. Writing starts with Mistral Small 24B, then Gemma 3 27B, Qwen 2.5 32B and Qwen 2.5 14B. These are editable example choices, not rankings built into the plugin.
 
-The selected concrete model appears in the credit review and saved Network results. If it becomes unavailable before dispatch, Core stops the request. Workflows does not retry a possibly charged failure automatically.
+Open **Workflow settings → Primary model / Fallback models** to set the default order. Each Agent node can use **Use workflow model order** or define its own primary and fallbacks. The article has individual agent overrides, including both agents inside the section loop; edit those or choose workflow inheritance to apply a single list throughout. Local and network models may be mixed explicitly. No model outside your list is selected.
+
+Before attempting a network model, Workflows refreshes Core's authenticated catalog. Unavailable choices are skipped in order. A rejection may advance to the next choice only when Core explicitly confirms that no generation was dispatched and no paid recovery is pending. Expired readiness may be refreshed once for the same choice. Declined consent, credit errors, timeouts, uncertain outcomes and failures after a partial reply stop the operation. The selected model appears in the credit review and saved Network results.
+
+Existing task aliases are converted to editable explicit lists on update or import. Saved workflow IDs and run history are preserved. There are no Auto research, Auto outline or Auto writing entries in the model selector.
 
 Core may limit replies to 256 tokens. This workflow enables bounded continuation requests for an outline, brief or section that ends at a token limit. Every continuation uses the same run consent, preserves the selected model, and is saved before acknowledgment. With Allow once, Core asks again for the next request. It stops on the total token budget, continuation limit, cancellation or error; partial paid responses remain in Network results. Continuation limits bound generation; ongoing credit use requires the permission selected in Core.
 
@@ -32,4 +36,4 @@ Source text is a bounded excerpt, not the entire document. Inaccessible pages ar
 
 ## Validation
 
-`npm test` exercises import, real graph execution, a synthetic 5000-word article, all section handoffs, word budgets, live-model routing, low-capacity continuations, credit review, privacy, cancellation and blocked page destinations. It does not measure live model prose quality. The source example is reproducible with `node scripts/build-article-workflow.js`.
+`npm test` exercises import, real graph execution, a synthetic 5000-word article, all section handoffs, word budgets, ordered model fallback, low-capacity continuations, credit review, privacy, cancellation and blocked page destinations. It does not measure live model prose quality. The source example is reproducible with `node scripts/build-article-workflow.js`.

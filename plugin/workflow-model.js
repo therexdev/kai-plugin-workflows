@@ -4,6 +4,43 @@
 })(typeof window === "object" ? window : globalThis, function () {
   "use strict";
   const clone = x => JSON.parse(JSON.stringify(x));
+
+  // One-time compatibility for saved 0.3.6–0.3.10 task aliases. New policies
+  // contain only explicit model IDs; the runner has no task rankings.
+  const legacyModelOrders = {
+  research: ["qwen25-32b", "deepseek-r1-32b", "phi-4", "qwen25-14b", "gemma3-27b", "mistral-small-24b", "gemma3-12b", "llama31-8b", "koinos-smart", "gemma3-4b", "mistral-7b", "koinos-balanced", "lfm3-1.7b", "koinos-fast"],
+  outline: ["qwen25-32b", "phi-4", "qwen25-14b", "deepseek-r1-32b", "mistral-small-24b", "gemma3-27b", "gemma3-12b", "koinos-smart", "llama31-8b", "gemma3-4b", "mistral-7b", "lfm3-1.7b", "koinos-balanced", "koinos-fast"],
+  writing: ["mistral-small-24b", "gemma3-27b", "qwen25-32b", "qwen25-14b", "gemma3-12b", "llama31-8b", "phi-4", "koinos-smart", "mistral-7b", "gemma3-4b", "koinos-balanced", "lfm3-1.7b", "koinos-fast", "deepseek-r1-32b"]
+};
+  function modelPolicy(input = {}) {
+    let model = input.model ?? "", fallbackModels = input.fallbackModels ?? [];
+    if (typeof model !== "string" || model.length > 200 || model !== model.trim()) throw Error("Choose a valid primary model.");
+    if (!Array.isArray(fallbackModels) || fallbackModels.length > 15 || fallbackModels.some(m => typeof m !== "string" || !m || m.length > 200 || m !== m.trim())) throw Error("Use an ordered list of up to 15 fallback model IDs.");
+    const legacy = legacyModelOrders[model.replace(/^koinos-network:auto-/, "")];
+    if (model.startsWith("koinos-network:auto-") && legacy) {
+      const expanded = [...new Set([...legacy.map(m => "koinos-network:" + m), ...fallbackModels])];
+      [model, ...fallbackModels] = expanded;
+    }
+    const all = [model, ...fallbackModels].filter(Boolean);
+    if (all.some(m => m.startsWith("desktop:") || m.startsWith("koinos-network") && !/^koinos-network:(?!auto-)[a-zA-Z0-9._-]{1,100}$/.test(m))) throw Error("Choose an installed local model or a specific KAI network model.");
+    if (!model && fallbackModels.length) throw Error("Choose a primary model before adding fallbacks.");
+    if (new Set(all).size !== all.length) throw Error("Choose each model only once in the fallback order.");
+    if (fallbackModels.length > 15) throw Error("Use an ordered list of up to 15 fallback model IDs.");
+    return { model, fallbackModels: [...fallbackModels] };
+  }
+  function modelOrder(input = {}, inherited = {}) {
+    const policy = modelPolicy(input.model ? input : inherited);
+    return [policy.model, ...policy.fallbackModels].filter(Boolean);
+  }
+  function migrateModels(workflow) {
+    let changed = false;
+    for (const value of [workflow, ...(workflow.graph?.nodes || []).filter(n => n.type === "agent").map(n => n.config)]) {
+      if (typeof value?.model === "string" && /^koinos-network:auto-(research|outline|writing)$/.test(value.model)) {
+        Object.assign(value, modelPolicy(value)); changed = true;
+      }
+    }
+    return changed;
+  }
   const catalog = [
     ["trigger", "Trigger", "Start", "Start manually, on a schedule, or when a source changes.", "⚡"],
     ["agent", "Agent", "Actions", "Ask a local or KAI network model to reason, write, or use selected read tools.", "✦"],
@@ -26,17 +63,18 @@
   ].map(([type, name, group, description, icon]) => ({ type, name, group, description, icon }));
   const types = catalog.map(x => x.type), meta = type => catalog.find(x => x.type === type);
   function defaults(type) {
-    return clone({ trigger: { kind: "manual", schedule: { kind: "daily", hour: 9, minute: 0, day: 1 }, inputFields: [] }, agent: { prompt: "Summarize this input and suggest next steps:\n{{previous}}", profile: "assistant", model: "", execution: "once", maxTurns: 3, tools: [] }, tool_call: { connectionId: "", operationId: "", variables: {}, body: {}, execution: "per_item" }, http_request: { method: "GET", url: "https://api.example.com/data", headers: {}, body: {}, execution: "per_item" }, web_research: { query: "{{input}}", maxPages: 3, execution: "once" }, code: { language: "javascript", source: "return items;" }, sub_workflow: { workflowId: "", execution: "once" }, memory: { operation: "search", query: "{{input}}", limit: 8 }, approval: { text: "Review this result:\n{{previous}}" }, condition: { expression: "=Boolean(item.text)", operator: "truthy", value: "" }, switch: { expression: "=item.status", cases: ["ready", "pending"] }, merge: { mode: "append", key: "id" }, split_out: { field: "=item.json", keepFields: false }, transform: { set: { summary: "=item.text" }, keepFields: true }, output_parser: { format: "json", field: "=item.text", required: "" }, dedup: { key: "=item.id", scope: "workflow" }, loop: { maxIterations: 3, condition: "", onExceeded: "continue" }, output: { text: "{{previous}}", saveChat: false } }[type] || {});
+    return clone({ trigger: { kind: "manual", schedule: { kind: "daily", hour: 9, minute: 0, day: 1 }, inputFields: [] }, agent: { prompt: "Summarize this input and suggest next steps:\n{{previous}}", profile: "assistant", model: "", fallbackModels: [], execution: "once", maxTurns: 3, tools: [] }, tool_call: { connectionId: "", operationId: "", variables: {}, body: {}, execution: "per_item" }, http_request: { method: "GET", url: "https://api.example.com/data", headers: {}, body: {}, execution: "per_item" }, web_research: { query: "{{input}}", maxPages: 3, execution: "once" }, code: { language: "javascript", source: "return items;" }, sub_workflow: { workflowId: "", execution: "once" }, memory: { operation: "search", query: "{{input}}", limit: 8 }, approval: { text: "Review this result:\n{{previous}}" }, condition: { expression: "=Boolean(item.text)", operator: "truthy", value: "" }, switch: { expression: "=item.status", cases: ["ready", "pending"] }, merge: { mode: "append", key: "id" }, split_out: { field: "=item.json", keepFields: false }, transform: { set: { summary: "=item.text" }, keepFields: true }, output_parser: { format: "json", field: "=item.text", required: "" }, dedup: { key: "=item.id", scope: "workflow" }, loop: { maxIterations: 3, condition: "", onExceeded: "continue" }, output: { text: "{{previous}}", saveChat: false } }[type] || {});
   }
   const node = (type, id, position, config = {}, label) => ({ id, type, label: label || meta(type)?.name || type, config: { ...defaults(type), ...config }, position: position || { x: 80, y: 80 } });
   const edge = (from, to, port = "main", input = "main") => ({ id: [from, port, to, input].join(":"), from, to, port, input });
   function ports(n) { return [...new Set(n.type === "condition" ? ["true", "false", "error"] : n.type === "switch" ? [...(n.config.cases || []).map(String), "default", "error"] : n.type === "loop" ? ["body", "done", "error"] : n.type === "approval" ? ["approved", "rejected", "error"] : ["main", "error"])]; }
   function fromLegacy(w) {
-    if (w.graph) return clone(w);
+    w = clone(w); migrateModels(w);
+    if (w.graph) return w;
     const nodes = [node("trigger", "start", { x: 80, y: 80 }, { kind: w.schedule?.kind !== "manual" ? "schedule" : "manual", schedule: w.schedule || { kind: "manual" } })], edges = [];
     (w.steps || []).forEach((s, i) => {
       const type = { prompt: "agent", connection: "tool_call", brain_search: "memory", remember: "memory" }[s.type] || s.type;
-      const config = s.type === "prompt" ? { prompt: s.text, model: w.model } : s.type === "brain_search" ? { operation: "search", query: s.text || "{{input}}", legacyText: true } : s.type === "remember" ? { operation: "remember", title: s.label, value: s.text } : s.type === "condition" ? { expression: "=item.text", operator: "contains", value: s.text } : s.type === "connection" ? { ...s } : { text: s.text };
+      const config = s.type === "prompt" ? { prompt: s.text, ...modelPolicy(w) } : s.type === "brain_search" ? { operation: "search", query: s.text || "{{input}}", legacyText: true } : s.type === "remember" ? { operation: "remember", title: s.label, value: s.text } : s.type === "condition" ? { expression: "=item.text", operator: "contains", value: s.text } : s.type === "connection" ? { ...s } : { text: s.text };
       const n = node(type, "step" + (i + 1), { x: 80, y: 80 + (i + 1) * 150 }, config, s.label); nodes.push(n);
       edges.push(edge(nodes[i].id, n.id, nodes[i].type === "condition" ? "true" : nodes[i].type === "approval" ? "approved" : "main"));
     });
@@ -70,8 +108,9 @@
         if (type === "condition" && c.field && !c.expression) c.expression = "=item[" + JSON.stringify(c.field) + "]";
         return node(type, n.id, n.position || { x: 80, y: 80 + i * 150 }, c, n.name);
       });
-      return importDocument({ name: w.name || g.name || "Imported workflow", description: w.description || "", model: w.model || "", enabled: false, graph: { version: 2, nodes, edges: g.edges.map(e => edge(e.from_node, e.to_node, e.from_port || "main", e.to_port || "main")) } });
+      return importDocument({ name: w.name || g.name || "Imported workflow", description: w.description || "", ...modelPolicy(w), enabled: false, graph: { version: 2, nodes, edges: g.edges.map(e => edge(e.from_node, e.to_node, e.from_port || "main", e.to_port || "main")) } });
     }
+    Object.assign(w, modelPolicy(w));
     for (const n of g.nodes) {
       if (!types.includes(n.type)) throw Error("Unsupported node: " + n.type);
       const c = n.config;
@@ -82,7 +121,7 @@
       if (c.cases !== undefined && (!Array.isArray(c.cases) || c.cases.some(p => typeof p !== "string"))) throw Error("Switch cases must be an array of names.");
       if (c.inputFields !== undefined && (!Array.isArray(c.inputFields) || c.inputFields.some(f => !object(f) || typeof f.name !== "string" || typeof f.type !== "string"))) throw Error("Input fields need names and types.");
       if (c.schedule !== undefined && !object(c.schedule)) throw Error("A schedule must be an object.");
-      n.config = { ...defaults(n.type), ...c };
+      n.config = { ...defaults(n.type), ...c, ...(n.type === "agent" ? modelPolicy(c) : {}) };
       n.label ||= meta(n.type).name;
       n.position = { x: Math.max(0, Math.min(6000, Number(n.position?.x) || 0)), y: Math.max(0, Math.min(12000, Number(n.position?.y) || 0)) };
     }
@@ -100,7 +139,7 @@
       const config = clone(n.config); delete config.triggerId; delete config.eventBinding;
       return { id: n.id, type: n.type, label: n.label || meta(n.type).name, position: clone(n.position || { x: 80, y: 80 }), config };
     }), edges: w.graph.edges.map(e => edge(e.from, e.to, e.port, e.input)) };
-    return { format: "kai.workflow", version: 1, workflow: { name: w.name || "Imported workflow", description: w.description || "", model: w.model || "", enabled: false, graph } };
+    return { format: "kai.workflow", version: 1, workflow: { name: w.name || "Imported workflow", description: w.description || "", ...modelPolicy(w), enabled: false, graph } };
   }
   function validateGraph(g) {
     const errors = [], warnings = [], error = (message, nodeId) => errors.push({ message, nodeId });
@@ -119,6 +158,7 @@
       if (n.type === "loop" && (!Number.isInteger(c.maxIterations) || c.maxIterations < 1 || c.maxIterations > 50)) error("Choose a loop limit from 1 to 50.", n.id);
       if (n.type === "sub_workflow" && !c.workflowId) error("Choose a saved sub-workflow.", n.id);
       if (n.type === "tool_call" && (!c.connectionId || !c.operationId)) error("Choose a connected app and action.", n.id);
+      if (n.type === "agent") { try { modelPolicy(c); } catch (e) { error(e.message, n.id); } }
       if (n.type === "agent" && !c.prompt?.trim()) error("Tell this agent what to do.", n.id);
       if (n.type === "http_request" && !c.connectionId && !/^https:\/\//.test(c.url || "")) error("Use a public HTTPS endpoint or a saved API connection.", n.id);
       if (n.type === "web_research" && (typeof c.query !== "string" || !c.query.trim())) error("Enter a web research query.", n.id);
@@ -137,17 +177,17 @@
   function template(key, model = "", connection) {
     const trigger = node("trigger", "start", { x: 90, y: 60 }), nodes = [trigger], edges = [];
     const add = (type, config, label) => { const n = node(type, "n" + nodes.length, { x: 90, y: 60 + nodes.length * 155 }, config, label); edges.push(edge(nodes.at(-1).id, n.id, nodes.at(-1).type === "approval" ? "approved" : "main")); nodes.push(n); return n; };
-    const ask = (prompt, label) => add("agent", { prompt, model }, label);
+    const ask = (prompt, label) => add("agent", { prompt }, label);
     let name;
     if (["briefing", "review", "digest"].includes(key)) { name = { briefing: "Project briefing", review: "Weekly goal review", digest: "Daily digest to an app" }[key]; add("memory", { operation: "search", query: "{{input}}" }, "Gather context"); ask("Summarize these notes and identify useful next steps. Cite note titles.\n{{previous}}", "Write a briefing"); if (key === "review") add("memory", { operation: "remember", title: "Reviewed next steps", value: "{{previous}}" }, "Remember next steps"); if (key === "digest") { trigger.config.kind = "schedule"; add("tool_call", { connectionId: connection?.id || "", operationId: "", variables: {}, body: {} }, "Send the reviewed digest"); } }
     else if (["api", "scrape"].includes(key)) { name = key === "api" ? "Fetch and parse an API" : "Scheduled source to Brain"; add("http_request", { url: "https://api.example.com/data" }, "Call the API"); add("output_parser", { field: "=item.text", format: "json" }, "Parse the response"); if (key === "scrape") { trigger.config.kind = "schedule"; ask("Summarize this source:\n{{previous}}", "Summarize source"); add("memory", { operation: "remember", title: "Source summary", value: "{{previous}}" }, "Save to Brain"); } }
     else if (key === "event") { name = "App change to conditional action"; trigger.config = { ...trigger.config, kind: "app_change", connectionId: connection?.id || "", operationId: connection?.operations?.find(o => o.method === "GET")?.id || "", variables: {}, intervalMinutes: 5 }; ask("Classify this change and return JSON with a boolean relevant field and a short summary.\n{{previous}}", "Triage the change"); add("output_parser", { format: "json", field: "=item.text" }); add("condition", { expression: "=item.relevant" }, "Is it relevant?"); const out = node("output", "result", { x: 90, y: 680 }, { text: "{{previous}}" }, "Keep relevant result"); edges.push(edge(nodes.at(-1).id, out.id, "true")); nodes.push(out); }
     else if (key === "research") { name = "Plan and write a research brief"; add("memory", { operation: "search", query: "{{input}}" }, "Gather research"); ask("Plan a concise research brief from these sources:\n{{previous}}", "Plan the brief"); ask("Write the brief from this plan. Clearly mark unknowns.\n{{previous}}", "Draft the brief"); }
-    else if (key === "loop") { name = "Review and refine"; ask("Draft a short answer to {{input}}", "First draft"); const loop = add("loop", { maxIterations: 2, onExceeded: "continue" }, "Refine twice"), refine = node("agent", "refine", { x: 420, y: 390 }, { model, prompt: "Improve this draft, keeping it concise:\n{{previous}}" }, "Refine draft"); nodes.push(refine); edges.push(edge(loop.id, refine.id, "body"), edge(refine.id, loop.id)); const out = node("output", "result", { x: 90, y: 560 }); nodes.push(out); edges.push(edge(loop.id, out.id, "done")); }
+    else if (key === "loop") { name = "Review and refine"; ask("Draft a short answer to {{input}}", "First draft"); const loop = add("loop", { maxIterations: 2, onExceeded: "continue" }, "Refine twice"), refine = node("agent", "refine", { x: 420, y: 390 }, { prompt: "Improve this draft, keeping it concise:\n{{previous}}" }, "Refine draft"); nodes.push(refine); edges.push(edge(loop.id, refine.id, "body"), edge(refine.id, loop.id)); const out = node("output", "result", { x: 90, y: 560 }); nodes.push(out); edges.push(edge(loop.id, out.id, "done")); }
     else { name = "Ask KAI"; ask("{{input}}", "Ask the agent"); }
     if (!nodes.some(n => n.type === "output") && nodes.at(-1).type !== "memory") add("output", { text: "{{previous}}" }, "Keep the result");
-    return { name, model, enabled: false, description: "", graph: { version: 2, nodes, edges } };
+    return { name, model, fallbackModels: [], enabled: false, description: "", graph: { version: 2, nodes, edges } };
   }
   const templates = [["briefing", "Project briefing", "Search your Brain and prepare a useful briefing."], ["review", "Weekly goal review", "Review context and remember approved next steps."], ["digest", "Daily digest to an app", "Summarize context on a schedule and send it to a connection."], ["scrape", "Scheduled source to Brain", "Read a source, summarize it, and remember the reviewed result."], ["event", "App change to conditional action", "Watch a read action, triage changes, and follow a branch."], ["api", "Fetch and parse an API", "Read structured data and use it in later steps."], ["ask", "Ask KAI", "A simple manual prompt with a saved result."], ["research", "Plan and write a research brief", "Use separate agents and models to plan and draft."], ["loop", "Review and refine", "Improve a draft through a bounded feedback loop."]];
-  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone };
+  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, migrateModels };
 });

@@ -3,7 +3,7 @@ const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path");
 const { fixture } = require("./helper"), { createInference } = require("../plugin/service/workflow-inference");
 const { CompanionStore } = require("../plugin/service/companion-store"), { CompanionWorkflows } = require("../plugin/service/companion-workflows");
-const { research } = require("../plugin/service/workflow-research"), { choose } = require("../plugin/service/workflow-routing");
+const { research } = require("../plugin/service/workflow-research");
 const Transfer = require("../plugin/service/workflow-transfer"), V = require("../plugin/service/workflow-values");
 const source = fs.readFileSync(path.join(__dirname,"../examples/researched-article.workflow.json"),"utf8");
 const lookup = async () => [{ address:"8.8.8.8",family:4 }];
@@ -13,14 +13,6 @@ function webMock(url) {
   if (url === "https://evidence.example/report") return new Response("<html><title>Original research</title><p>Evidence about the requested topic. "+"Source facts and examples. ".repeat(100)+"</p></html>",{headers:{"content-type":"text/html"}});
   throw Error("Unexpected egress: "+url);
 }
-test("auto routing uses live readiness and distinct task preferences, never local models", () => {
-  const rows = ["qwen25-32b","mistral-small-24b","phi-4"].map(id=>({alias:"koinos-network:"+id,status:"ready",maxOutput:256}));
-  assert.equal(choose(rows,"koinos-network:auto-research").alias,"koinos-network:qwen25-32b");
-  assert.equal(choose(rows,"koinos-network:auto-writing").alias,"koinos-network:mistral-small-24b");
-  rows[0].status="unavailable";
-  assert.equal(choose(rows,"koinos-network:auto-outline").alias,"koinos-network:phi-4");
-  assert.throws(()=>choose([],"koinos-network:auto-research"),/online/);
-});
 test("network continuations respect the provider cap, review each part and retain the actual model", async t => {
   const f=fixture(t,"kai.workflows"), saved=[], requests=[];
   f.api.network.models=async()=>[{model:"qwen25-32b",available:true,maxOutput:8}];
@@ -29,10 +21,10 @@ test("network continuations respect the provider cap, review each part and retai
     if(action==="chat-completion"){requests.push(request);return{choices:[{message:{content:requests.length===1?'{"ok":':'true}'},finish_reason:requests.length===1?"length":"stop"}],usage:{completion_tokens:8}};}
   }};
   const inference=createInference(f.api,r=>saved.push(r));
-  const answer=await inference.run({model:"koinos-network:auto-outline",prompt:"Return JSON",maxTokens:24,maxContinuations:2});
+  const answer=await inference.run({model:"koinos-network:qwen25-32b",fallbackModels:["koinos-network:phi-4"],prompt:"Return JSON",maxTokens:24,maxContinuations:2});
   assert.deepEqual(JSON.parse(answer),{ok:true}); assert.equal(f.confirmations.length,2);
   assert.ok(requests.every(r=>r.model==="koinos-network:qwen25-32b"&&r.max_tokens===8));
-  assert.equal(requests[1].messages.at(-2).content,'{"ok":'); assert.equal(saved[1].requestedModel,"koinos-network:auto-outline");
+  assert.equal(requests[1].messages.at(-2).content,'{"ok":'); assert.equal(saved[1].requestedModel,"koinos-network:qwen25-32b");
 });
 test("web research reads real page bodies, distinguishes unreadable pages and blocks private destinations", async () => {
   let calls=0; const options={privacyMode:()=>"network",lookup,fetchImpl:async(...args)=>{calls++;return webMock(...args);}};

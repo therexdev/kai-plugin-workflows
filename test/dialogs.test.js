@@ -52,14 +52,16 @@ test("failed paste retains the user's JSON and shows the error inside the dialog
   assert.match(f.host.innerHTML, /Invalid JSON/); assert.match(f.host.innerHTML, /&quot;broken&quot;/);
   assert.match(f.host.innerHTML, /role="alert"/); assert.equal(f.api.isEditing(), false);
 });
-test("article imports render web research nodes and automatic network choices in the builder", async () => {
+test("article imports render web research nodes and explicit model order in the builder", async () => {
   const text = fs.readFileSync(path.join(__dirname, "../examples/researched-article.workflow.json"), "utf8");
   const draft = { ...M.importDocument(JSON.parse(text)), id: "article-draft", draft: true };
   const f = fixture({ manage: async action => action === "importWorkflow" ? draft : {} });
   await f.click("import"); await f.submit(text);
   assert.equal(f.api.isEditing(), true);
   assert.match(f.host.innerHTML, /Web research/);
-  assert.match(f.host.innerHTML, /KAI network · Auto research/);
+  assert.match(f.host.innerHTML, /Primary model/);
+  assert.match(f.host.innerHTML, /Fallback models/);
+  assert.doesNotMatch(f.host.innerHTML, /KAI network · Auto /);
   assert.match(f.host.innerHTML, /Workflow settings/);
 });
 test("successful paste opens the imported draft settings, while a cancelled file picker keeps the paste", async () => {

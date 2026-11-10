@@ -55,7 +55,7 @@ test("transfer excludes runtime data and event registrations without changing th
   Object.assign(w.graph.nodes[0].config, { kind: "app_event", connectionId: "connection-hint", triggerSlug: "NEW_ISSUE", triggerId: "registration", eventBinding: "account" });
   const before = structuredClone(w), out = Transfer.exportWorkflow(w).document;
   assert.deepEqual(w, before);
-  assert.deepEqual(Object.keys(out.workflow).sort(), ["description", "enabled", "graph", "model", "name"]);
+  assert.deepEqual(Object.keys(out.workflow).sort(), ["description", "enabled", "fallbackModels", "graph", "model", "name"]);
   assert.doesNotMatch(JSON.stringify(out), /private|secret|registration|eventBinding|triggerId/);
   assert.equal(out.workflow.graph.nodes[0].config.connectionId, "connection-hint");
   const imported = Transfer.parseDocument(JSON.stringify(w));

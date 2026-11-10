@@ -1,4 +1,16 @@
-# Workflows 0.3.10
+# Workflows 0.3.11
+
+Choose a primary model and an ordered list of fallback models for each workflow. Agent steps can inherit that order or override it. Add, move and remove local or KAI network choices in the builder; JSON import/export and saved agents preserve the same order.
+
+The Auto research, Auto outline and Auto writing menu entries are removed. Existing workflows using them migrate to explicit editable model lists, preserving workflow identities, schedules and previous run history. The researched-article example now includes explicit model lists.
+
+Unavailable models are skipped. Fallback after a network rejection requires Core's explicit confirmation that generation never started. Declined credit consent, credit errors, timeouts, uncertain requests and partial replies stop rather than starting another generation. Network-capable nodes cannot repeat a possibly charged request through generic node retries.
+
+Generation-limit errors now identify the output token budget, continuation count or empty unfinished reply, while preserving partial results.
+
+Requires KAI Core 0.7.25 or later. Update Workflows from the in-app catalog; existing article workflows do not require reimporting. Synthetic routing, transfer, migration, renderer and native bridge checks do not establish live provider availability or model output quality.
+
+## Previous release: Workflows 0.3.10
 
 Fixes run controls appearing unresponsive when the article input is missing or a prior run is still active. Start failures now appear inside the run dialog and retain entered values. Workflows with declared inputs show separate fields with type validation, including topic and word count for researched articles.
 

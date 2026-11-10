@@ -44,7 +44,7 @@ test("an existing imported 180-second agent finishes continuations taking longer
 
 test("a slow individual reply fails clearly, retains completed parts and never retries", async t => {
   const f = setup(t);
-  const work = f.inference.run({ model: "koinos-network:auto-outline", prompt: "Outline", timeoutSeconds: 180, maxTokens: 24, maxContinuations: 2 });
+  const work = f.inference.run({ model: ALIAS, fallbackModels: ["local-test"], prompt: "Outline", timeoutSeconds: 180, maxTokens: 24, maxContinuations: 2 });
   const stopped = assert.rejects(work, /network reply timed out after 180 seconds.*Network results/);
   await flush(); f.pending[0].resolve(reply("Saved outline prefix", "length")); await flush();
   t.mock.timers.tick(180000); await stopped; await flush();

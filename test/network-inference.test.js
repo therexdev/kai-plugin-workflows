@@ -110,11 +110,11 @@ test("network discovery is explicit, identifies actual availability and leaves l
   const f = setup(t);
   assert.equal(f.inference.list().length, 1);
   const result = await f.inference.refresh();
-  assert.equal(result.models.find(m => m.alias === ALIAS).source, "network");
+  assert.equal(result.models.find(m => m.alias === "test-network").source, "network");
   await f.inference.run({ model: "local-test", prompt: "Local", signal: f.controller.signal });
   assert.equal(f.localCalls.length, 1); assert.equal(f.calls.length, 0);
   f.setAvailable(false); await f.inference.refresh();
-  assert.equal(f.inference.list().find(m => m.alias === ALIAS).status, "unavailable");
+  assert.equal(f.inference.list().find(m => m.alias === "test-network").networkStatus, "unavailable");
   f.setMode("local-only"); await f.inference.refresh(); assert.equal(f.inference.list().length, 1);
 });
 test("network requests review credits, use current Core response shape, persist then acknowledge", async t => {
@@ -145,7 +145,7 @@ test("network-only and mixed workflows survive JSON transfer and execute with ex
   const f = setup(t, { networkOnly: true }), app = create(f.api); t.after(() => app.dispose());
   const flow = Model.template("ask", ALIAS), text = JSON.stringify(Model.exportDocument(flow));
   const draft = await app.call("workflows.importWorkflow", { text });
-  assert.equal(draft.model, ALIAS); assert.equal(draft.graph.nodes[1].config.model, ""); assert.equal(f.calls.length, 0);
+  assert.equal(draft.model, "test-network"); assert.equal(draft.modelSource, "network"); assert.equal(draft.graph.nodes[1].config.model, ""); assert.equal(f.calls.length, 0);
   const models = await app.call("workflows.workflowModels"); assert.equal(models.models.length, 1);
   const saved = await app.call("workflows.workflow", draft), run = await app.call("workflows.run", { id: saved.id, input: "No local model installed" });
   const r = await terminal(app, run.id); assert.equal(r.status, "completed", r.error); assert.equal(r.networkCalls[0].model, ALIAS);
@@ -157,7 +157,7 @@ test("network-only and mixed workflows survive JSON transfer and execute with ex
   const mixed = Model.template("loop", "local-test"); mixed.graph.nodes.find(n => n.id === "refine").config.model = ALIAS;
   const m = await app.call("workflows.workflow", mixed), mr = await app.call("workflows.run", { id: m.id, input: "Mix routes" });
   const done = await terminal(app, mr.id); assert.equal(done.status, "completed", done.error);
-  assert.equal(f.localCalls.length, 1); assert.equal(done.networkCalls.length, 2);
+  assert.equal(f.localCalls.length, 1); assert.equal(done.networkCalls.filter(c => c.source === "network").length, 2); assert.equal(done.networkCalls.filter(c => c.source === "local").length, 1);
 });
 test("hidden background network work waits for review and preview never spends", async t => {
   const f = setup(t, { networkOnly: true }), app = create(f.api); t.after(() => app.dispose());
@@ -211,8 +211,8 @@ test("Copilot and saved agents accept network models without a local installatio
   const f = setup(t, { networkOnly: true }), authorize = f.api.wallet.authorize;
   f.api.wallet.authorize = async (action, input, signal) => { const value = await authorize(action, input, signal); if (action === "chat-completion") value.choices[0].message.content = JSON.stringify(Model.template("ask", ALIAS)); return value; };
   const app = create(f.api); t.after(() => app.dispose());
-  const agent = await app.call("workflows.agentSave", { name: "Network agent", model: ALIAS, instructions: "Summarize inputs" }); assert.equal(agent.model, ALIAS);
+  const agent = await app.call("workflows.agentSave", { name: "Network agent", model: ALIAS, instructions: "Summarize inputs" }); assert.equal(agent.model, "test-network"); assert.equal(agent.modelSource, "network");
   const proposal = await app.call("workflows.workflowAssist", { model: ALIAS, request: "Make a simple answer workflow" });
-  assert.equal(proposal.proposal.model, ALIAS); assert.equal(proposal.report.errors.length, 0);
+  assert.equal(proposal.proposal.model, "test-network"); assert.equal(proposal.proposal.modelSource, "network"); assert.equal(proposal.report.errors.length, 0);
   const local = f.localCalls.length; assert.equal(local, 0);
 });

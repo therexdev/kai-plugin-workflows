@@ -24,7 +24,7 @@ test("network continuations respect the provider cap, review each part and retai
   const answer=await inference.run({model:"koinos-network:qwen25-32b",fallbackModels:["koinos-network:phi-4"],prompt:"Return JSON",maxTokens:24,maxContinuations:2});
   assert.deepEqual(JSON.parse(answer),{ok:true}); assert.equal(f.confirmations.length,2);
   assert.ok(requests.every(r=>r.model==="koinos-network:qwen25-32b"&&r.max_tokens===8));
-  assert.equal(requests[1].messages.at(-2).content,'{"ok":'); assert.equal(saved[1].requestedModel,"koinos-network:qwen25-32b");
+  assert.equal(requests[1].messages.at(-2).content,'{"ok":'); assert.equal(saved[1].requestedModel,"qwen25-32b");
 });
 test("web research reads real page bodies, distinguishes unreadable pages and blocks private destinations", async () => {
   let calls=0; const options={privacyMode:()=>"network",lookup,fetchImpl:async(...args)=>{calls++;return webMock(...args);}};

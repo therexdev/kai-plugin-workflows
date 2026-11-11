@@ -12,32 +12,55 @@
   outline: ["qwen25-32b", "phi-4", "qwen25-14b", "deepseek-r1-32b", "mistral-small-24b", "gemma3-27b", "gemma3-12b", "koinos-smart", "llama31-8b", "gemma3-4b", "mistral-7b", "lfm3-1.7b", "koinos-balanced", "koinos-fast"],
   writing: ["mistral-small-24b", "gemma3-27b", "qwen25-32b", "qwen25-14b", "gemma3-12b", "llama31-8b", "phi-4", "koinos-smart", "mistral-7b", "gemma3-4b", "koinos-balanced", "lfm3-1.7b", "koinos-fast", "deepseek-r1-32b"]
 };
+  const networkId = model => typeof model === "string" && /^koinos-network:/.test(model);
+  const modelId = model => String(model || "").replace(/^koinos-network:/, "");
+  function modelChoice(input) {
+    if (typeof input === "string") input = { model: input };
+    if (!input || typeof input !== "object" || Array.isArray(input)) throw Error("Choose a valid model and where it can run.");
+    const raw = input.model ?? "", model = modelId(raw);
+    if (typeof raw !== "string" || raw.length > 200 || raw !== raw.trim() || raw.startsWith("desktop:") || raw.startsWith("koinos-network") && !/^koinos-network:(?!auto-)[a-zA-Z0-9._-]{1,100}$/.test(raw)) throw Error("Choose a valid model ID.");
+    const modelSource = input.modelSource ?? (networkId(raw) ? "network" : "local"), modelPreference = input.modelPreference ?? (modelSource === "network" ? "network" : "local");
+    if (!["local", "network", "both"].includes(modelSource)) throw Error("Choose Local only, Network only, or Local and network.");
+    if (!["local", "network"].includes(modelPreference)) throw Error("Choose Local first or Network first.");
+    return { model, modelSource, modelPreference };
+  }
   function modelPolicy(input = {}) {
     let model = input.model ?? "", fallbackModels = input.fallbackModels ?? [];
     if (typeof model !== "string" || model.length > 200 || model !== model.trim()) throw Error("Choose a valid primary model.");
-    if (!Array.isArray(fallbackModels) || fallbackModels.length > 15 || fallbackModels.some(m => typeof m !== "string" || !m || m.length > 200 || m !== m.trim())) throw Error("Use an ordered list of up to 15 fallback model IDs.");
+    if (!Array.isArray(fallbackModels) || fallbackModels.length > 15) throw Error("Use an ordered list of up to 15 fallback models.");
     const legacy = legacyModelOrders[model.replace(/^koinos-network:auto-/, "")];
     if (model.startsWith("koinos-network:auto-") && legacy) {
       const expanded = [...new Set([...legacy.map(m => "koinos-network:" + m), ...fallbackModels])];
       [model, ...fallbackModels] = expanded;
     }
-    const all = [model, ...fallbackModels].filter(Boolean);
-    if (all.some(m => m.startsWith("desktop:") || m.startsWith("koinos-network") && !/^koinos-network:(?!auto-)[a-zA-Z0-9._-]{1,100}$/.test(m))) throw Error("Choose an installed local model or a specific KAI network model.");
     if (!model && fallbackModels.length) throw Error("Choose a primary model before adding fallbacks.");
-    if (new Set(all).size !== all.length) throw Error("Choose each model only once in the fallback order.");
     if (fallbackModels.length > 15) throw Error("Use an ordered list of up to 15 fallback model IDs.");
-    return { model, fallbackModels: [...fallbackModels] };
+    const primary = modelChoice({ ...input, model }), fallbacks = fallbackModels.map(modelChoice);
+    if (fallbacks.some(m => !m.model)) throw Error("Choose a model for every fallback.");
+    // Preserve old mixed orders, including separate local/network entries for
+    // the same ID. Never broaden a saved local-only or network-only choice.
+    const routes = [primary, ...fallbacks].filter(m => m.model).flatMap(modelRoutes);
+    if (new Set(routes).size !== routes.length) throw Error("Choose each model location only once in the fallback order.");
+    return { ...primary, fallbackModels: fallbacks };
+  }
+  function modelRoutes(choice) {
+    const sources = choice.modelSource === "both" ? [choice.modelPreference, choice.modelPreference === "local" ? "network" : "local"] : [choice.modelSource];
+    return sources.map(source => (source === "network" ? "koinos-network:" : "") + choice.model);
+  }
+  function modelChoices(input = {}, inherited = {}) {
+    const { fallbackModels, ...primary } = modelPolicy(input.model ? input : inherited);
+    return [primary, ...fallbackModels].filter(m => m.model);
   }
   function modelOrder(input = {}, inherited = {}) {
-    const policy = modelPolicy(input.model ? input : inherited);
-    return [policy.model, ...policy.fallbackModels].filter(Boolean);
+    return modelChoices(input, inherited).flatMap(modelRoutes);
   }
+  const localReady = (models, alias) => models.some(m => m.alias === alias && (m.localStatus === "ready" || m.localStatus === undefined && m.source !== "network" && m.status === "ready"));
   function migrateModels(workflow) {
     let changed = false;
     for (const value of [workflow, ...(workflow.graph?.nodes || []).filter(n => n.type === "agent").map(n => n.config)]) {
-      if (typeof value?.model === "string" && /^koinos-network:auto-(research|outline|writing)$/.test(value.model)) {
-        Object.assign(value, modelPolicy(value)); changed = true;
-      }
+      if (!value) continue;
+      const policy = modelPolicy(value);
+      if (Object.keys(policy).some(key => JSON.stringify(value[key]) !== JSON.stringify(policy[key]))) { Object.assign(value, policy); changed = true; }
     }
     return changed;
   }
@@ -84,7 +107,7 @@
   function importDocument(raw) {
     const object = value => !!value && typeof value === "object" && !Array.isArray(value);
     if (!object(raw)) throw Error("Choose a JSON object containing one workflow.");
-    if (raw.format !== undefined && (raw.format !== "kai.workflow" || raw.version !== 1)) throw Error("Unsupported workflow format or version. Update Workflows before importing this file.");
+    if (raw.format !== undefined && (raw.format !== "kai.workflow" || ![1, 2].includes(raw.version))) throw Error("Unsupported workflow format or version. Update Workflows before importing this file.");
     if (raw.format === "kai.workflow" && !object(raw.workflow)) throw Error("The workflow document is missing its workflow object.");
     if (raw.workflow !== undefined && raw.format === undefined && (raw.schema !== 1 || raw.runtimeVersion !== 2)) throw Error("Unsupported workflow format or version. Update Workflows before importing this file.");
     const w = clone(raw.workflow || raw.flow || raw), g = w.graph || (w.nodes ? w : null);
@@ -139,7 +162,7 @@
       const config = clone(n.config); delete config.triggerId; delete config.eventBinding;
       return { id: n.id, type: n.type, label: n.label || meta(n.type).name, position: clone(n.position || { x: 80, y: 80 }), config };
     }), edges: w.graph.edges.map(e => edge(e.from, e.to, e.port, e.input)) };
-    return { format: "kai.workflow", version: 1, workflow: { name: w.name || "Imported workflow", description: w.description || "", ...modelPolicy(w), enabled: false, graph } };
+    return { format: "kai.workflow", version: 2, workflow: { name: w.name || "Imported workflow", description: w.description || "", ...modelPolicy(w), enabled: false, graph } };
   }
   function validateGraph(g) {
     const errors = [], warnings = [], error = (message, nodeId) => errors.push({ message, nodeId });
@@ -189,5 +212,5 @@
     return { name, model, fallbackModels: [], enabled: false, description: "", graph: { version: 2, nodes, edges } };
   }
   const templates = [["briefing", "Project briefing", "Search your Brain and prepare a useful briefing."], ["review", "Weekly goal review", "Review context and remember approved next steps."], ["digest", "Daily digest to an app", "Summarize context on a schedule and send it to a connection."], ["scrape", "Scheduled source to Brain", "Read a source, summarize it, and remember the reviewed result."], ["event", "App change to conditional action", "Watch a read action, triage changes, and follow a branch."], ["api", "Fetch and parse an API", "Read structured data and use it in later steps."], ["ask", "Ask KAI", "A simple manual prompt with a saved result."], ["research", "Plan and write a research brief", "Use separate agents and models to plan and draft."], ["loop", "Review and refine", "Improve a draft through a bounded feedback loop."]];
-  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, migrateModels };
+  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, modelChoice, modelChoices, modelId, localReady, migrateModels };
 });

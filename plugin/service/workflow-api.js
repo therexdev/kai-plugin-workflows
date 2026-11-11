@@ -64,7 +64,7 @@ function create(ctx) {
         case "agents": return agents();
         case "agentSave": {
           const value = { name: text(input.name, 100, "Agent name"), ...Model.modelPolicy(input), instructions: text(input.instructions, 4000, "Instructions") };
-          if (!Model.modelOrder(value).some(model => require("./workflow-inference").networkModel(model) || ctx.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("Choose an installed local model or a KAI network model.");
+          if (!Model.modelOrder(value).some(model => require("./workflow-inference").networkModel(model) || Model.localReady(ctx.models(), model))) throw new CompanionError("Choose an installed local model or a KAI network model.");
           return store().change(d => { d.workflowAgents ||= []; const old = d.workflowAgents.find(a => a.id === input.id); if (input.id && !old) throw new CompanionError("Agent no longer exists."); const saved = { ...value, id: old?.id || id(), updatedAt: Date.now() }; if (old) d.workflowAgents[d.workflowAgents.indexOf(old)] = saved; else d.workflowAgents.push(saved); return saved; });
         }
         case "agentRemove": return store().change(d => { d.workflowAgents = (d.workflowAgents || []).filter(a => a.id !== input.id); return { removed: true }; });

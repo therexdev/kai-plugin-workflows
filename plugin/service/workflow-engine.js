@@ -54,7 +54,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       const c = n.config;
       if (n.type === "agent") {
         const order = Model.modelOrder(c, spec);
-        if (!order.some(model => networkModel(model) || this.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError(n.label + ": choose an installed local model or a KAI network model.");
+        if (!order.some(model => networkModel(model) || Model.localReady(this.models(), model))) throw new CompanionError(n.label + ": choose an installed local model or a KAI network model.");
         for (const tool of c.tools || []) { const connection = this.store.data.connections.find(x => x.id === tool.connectionId); if (!connection?.allowSync || !connection.operations.some(o => o.id === tool.operationId && o.method === "GET")) throw new CompanionError("Agent tools must be selected read actions with background reads enabled."); }
       }
       if (c.connectionId && !["trigger", "agent"].includes(n.type)) {
@@ -113,10 +113,10 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       const saved = d.workflows.find(x => x.id === key); if (saved.enabled && trigger === "schedule") saved.nextRunAt = next(saved.schedule);
     }); this.launch(runId); return runId;
   }
-  frame(key, frameId, graph, seeds, input, iteration = 0, model = "", fallbackModels = []) {
+  frame(key, frameId, graph, seeds, input, iteration = 0, policy = {}) {
     if (this.get(key).frames[frameId]) return;
     const p = plan(graph);
-    this.patch(key, r => { if (Object.keys(r.frames).length >= 150) throw new CompanionError("Run reached the 150-frame limit."); r.frames[frameId] = { graph, seeds, input, iteration, model, fallbackModels, states: Object.fromEntries(p.nodes.map(n => [n.id, { status: "pending", outputs: {}, cursor: 0, turns: [] }])), status: "running" }; });
+    this.patch(key, r => { if (Object.keys(r.frames).length >= 150) throw new CompanionError("Run reached the 150-frame limit."); r.frames[frameId] = { graph, seeds, input, iteration, ...Model.modelPolicy(policy), states: Object.fromEntries(p.nodes.map(n => [n.id, { status: "pending", outputs: {}, cursor: 0, turns: [] }])), status: "running" }; });
   }
   state(key, frameId, nodeId) { return this.get(key).frames[frameId].states[nodeId]; }
   patchNode(key, frameId, nodeId, fn) { this.patch(key, r => fn(r.frames[frameId].states[nodeId], r)); }
@@ -126,7 +126,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
   async drive(key, signal, approved) {
     if (!this.get(key).spec.graph) return super.drive(key, signal, approved);
     if (approved) this.patch(key, r => { const a = r.approvals[0]; if (a) a.approved = true; r.status = "running"; });
-    const run = this.get(key); this.frame(key, "root", run.spec.graph, [], run.input, 0, run.spec.model, run.spec.fallbackModels);
+    const run = this.get(key); this.frame(key, "root", run.spec.graph, [], run.input, 0, run.spec);
     const result = await this.driveFrame(key, "root", signal); signal.throwIfAborted();
     this.patch(key, r => { if (result === WAIT) { r.status = "waiting"; r.pending = r.approvals.find(a => !a.approved)?.detail || null; } else { r.status = "completed"; r.finishedAt = Date.now(); r.output = result; r.previous = result.map(v => v.text ?? V.string(v)).join("\n\n").slice(0, 16000); r.inFlight = null; r.pending = null; } });
   }
@@ -210,7 +210,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     else if (n.type === "approval") { approval = true; detail = { name: n.label, text: await V.resolve(c.text || "{{previous}}", scope, signal) }; }
     if (n.type === "agent" && Model.modelOrder(c, this.get(key).frames[frameId]).some(networkModel)) {
       sideEffect = true; // Never automatically retry a possibly charged request.
-      const first = Model.modelOrder(c, this.get(key).frames[frameId]).find(model => networkModel(model) || this.models().some(m => m.alias === model && m.status === "ready"));
+      const first = Model.modelOrder(c, this.get(key).frames[frameId]).find(model => networkModel(model) ? this.privacyMode() !== "local-only" : Model.localReady(this.models(), model));
       approval ||= networkModel(first) && !await this.canReviewNetwork(key, this.get(key).name);
       detail = { name: n.label, model: c.model || this.get(key).frames[frameId].model, message: "Open Workflows and resume to review network credits before this step." };
     }
@@ -272,7 +272,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     if (n.type === "output") { const result = c.text ? await resolve(c.text) : scope.items; if (c.saveChat && !dry) { const saved = await this.chats?.save({ title: "Workflow · " + this.get(key).name, grantScope: "workflow:" + this.get(key).workflowId + ":" + this.get(key).spec.revision, messages: [{ role: "user", content: V.string(scope.input) || "Workflow run" }, { role: "assistant", content: V.string(result) }] }); if (saved) this.patch(key, r => { r.chatId = saved.id; }); } return main(typeof result === "string" ? V.envelope(result) : result); }
     if (n.type === "sub_workflow") {
       const spec = this.get(key).snapshots[c.workflowId], childId = token + "/child"; if (!spec) throw new CompanionError("Sub-workflow snapshot unavailable.");
-      this.frame(key, childId, spec.graph, [], scope.items, 0, spec.model, spec.fallbackModels); const result = await this.driveFrame(key, childId, signal); return result === WAIT ? WAIT : main(result);
+      this.frame(key, childId, spec.graph, [], scope.items, 0, spec); const result = await this.driveFrame(key, childId, signal); return result === WAIT ? WAIT : main(result);
     }
     if (n.type === "loop") {
       const parent = this.get(key).frames[frameId], region = loopRegion(parent.graph, n), graph = { version: 2, nodes: parent.graph.nodes.filter(x => region.has(x.id)), edges: parent.graph.edges.filter(e => region.has(e.from) && region.has(e.to)) };
@@ -280,7 +280,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       for (; iteration < c.maxIterations; iteration++) {
         if (c.condition && !await V.resolve(c.condition, { ...scope, item: current[0], items: current, iteration }, signal)) return { done: current };
         const childId = token + "/loop" + iteration, seeds = parent.graph.edges.filter(e => e.from === n.id && e.port === "body").map(e => ({ to: e.to, input: e.input, items: current }));
-        this.frame(key, childId, graph, seeds, scope.input, iteration, parent.model, parent.fallbackModels); const result = await this.driveFrame(key, childId, signal); if (result === WAIT) return WAIT;
+        this.frame(key, childId, graph, seeds, scope.input, iteration, parent); const result = await this.driveFrame(key, childId, signal); if (result === WAIT) return WAIT;
         const child = this.get(key).frames[childId]; current = parent.graph.edges.filter(e => region.has(e.from) && e.to === n.id).flatMap(e => child.states[e.from]?.outputs[e.port || "main"] || []);
         this.patchNode(key, frameId, n.id, s => { s.loopItems = current; s.iteration = iteration + 1; }); if (!current.length) return { done: [] };
       }

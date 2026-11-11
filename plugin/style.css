@@ -31,10 +31,13 @@ html,body{width:100%;height:100%;margin:0}body{display:block;overflow:hidden}.pl
 
 /* Ordered model fallbacks fit the narrow node inspector. */
 .wf-model-order h4 { margin: 16px 0 6px; }
-.wf-model-fallback { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px; margin: 14px 0; }
-.wf-model-fallback .wf-field { display: contents; }
-.wf-model-fallback .wf-field > span { grid-column: 1; grid-row: 1; }
-.wf-model-fallback select { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; }
-.wf-model-actions { grid-column: 2; grid-row: 1; display: flex; gap: 3px; }
+.wf-model-fallback { position: relative; margin: 16px 0; padding-top: 12px; border-top: 1px solid #dce5f2; }
+.wf-model-choice, .wf-model-locations { min-width: 0; }
+.wf-model-fallback select { width: 100%; min-width: 0; }
+.wf-model-actions { position: absolute; right: 0; top: 9px; display: flex; gap: 3px; }
+.wf-model-choice > .wf-field:first-child > span { padding-right: 100px; }
+.wf-model-availability { display: block; color: #61728d; font-size: 11px; margin: 5px 0 12px; }
+.wf-model-preference[hidden] { display: none; }
+.wf-network-results small { display: block; margin: 4px 0; }
 .wf-model-actions button { padding: 3px 8px; min-width: 28px; }
 .wf-model-actions button:disabled { opacity: .35; }

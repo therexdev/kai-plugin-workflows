@@ -1,4 +1,14 @@
-# Workflows 0.3.11
+# Workflows 0.3.12
+
+Choose a model once, then choose **Run on → Local only, Network only, or Local and network**. When both are allowed, choose **Local first** or **Network first**. Each primary and ordered fallback model has these controls, with separate availability shown for this computer and the network. Agent nodes can inherit the entire workflow policy or override it. Copilot and Discover also support model locations.
+
+If a continuation's selected provider becomes unavailable, Workflows can use the next configured location or model only when Core confirms that the new request never started. It carries forward the accepted text and remaining output budget. Unknown outcomes, timeouts, declined credit approval and cancellation still stop the run. **Model results** shows the actual local or network route for each accepted part and network credit usage when available.
+
+Existing workflows retain their original local/network choices, IDs, schedules and history. New exports use JSON format version 2; older imports remain supported. The researched-article example includes explicit location settings and retains its existing model order and prompts. Local means this computer, with no network credits; another computer on the same account is not automatically a local runtime.
+
+Update Workflows from the in-app catalog. Core 0.7.25+ is required; Core 0.7.27 is recommended for transient network-check retries. Existing workflows need no reimport. For article workflows with Agent overrides, edit those controls or select **Use workflow model order** to inherit the workflow settings. Synthetic tests and native UI checks do not establish live provider availability or article quality.
+
+## Previous release: Workflows 0.3.11
 
 Choose a primary model and an ordered list of fallback models for each workflow. Agent steps can inherit that order or override it. Add, move and remove local or KAI network choices in the builder; JSON import/export and saved agents preserve the same order.
 

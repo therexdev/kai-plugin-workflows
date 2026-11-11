@@ -43,7 +43,7 @@ Use a UTF-8 `.json` file. The recommended envelope is:
 ```json
 {
   "format": "kai.workflow",
-  "version": 1,
+  "version": 2,
   "workflow": {
     "name": "Echo input",
     "description": "Keep supplied input in run history.",
@@ -79,30 +79,37 @@ The [JSON Schema](workflow.schema.json) describes the envelope and structural fi
 
 Use one trigger, 1–60 nodes, and at most 160 edges. Node IDs must start with a letter and contain only letters, numbers, `_` or `-`, with a maximum of 64 characters. Close cycles through a bounded Loop node. Missing setup, such as an unselected connection, can be corrected in a draft; malformed node types, references, unsupported versions and unbounded graph cycles are rejected during import. Files are limited to 1 MiB; the existing runner limit of 150,000 JSON characters per graph still applies.
 
-For compatibility, the importer also accepts older plain KAI workflow definitions, legacy `steps` documents, the existing `{ "schema": 1, "runtimeVersion": 2, "workflow": ... }` API envelope, and the previously supported OpenHuman `flow` format. New file exports use `kai.workflow` version 1. The `workflows.export` API keeps its existing envelope but now returns a definition without runtime state. The `exportService` API used by Agent Network is unchanged.
+For compatibility, the importer also accepts older plain KAI workflow definitions, legacy `steps` documents, the existing `{ "schema": 1, "runtimeVersion": 2, "workflow": ... }` API envelope, and the previously supported OpenHuman `flow` format. New file exports use `kai.workflow` version 2; version 1 imports remain supported. The `workflows.export` API keeps its existing envelope but now returns a definition without runtime state. The `exportService` API used by Agent Network is unchanged.
 
 ## Primary and fallback models
 
-Workflows 0.3.11 accepts `model` and `fallbackModels` on the workflow and on each Agent node's `config`:
+Workflows 0.3.12 separates the model ID from where it can run. The workflow default, each Agent override, saved agents, Copilot and Discover use the same policy:
 
 ```json
 {
-  "model": "koinos-network:qwen25-14b",
-  "fallbackModels": ["koinos-network:phi-4", "local-model-alias"]
+  "model": "qwen25-14b",
+  "modelSource": "both",
+  "modelPreference": "local",
+  "fallbackModels": [
+    { "model": "phi-4", "modelSource": "both", "modelPreference": "network" },
+    { "model": "custom-local-alias", "modelSource": "local" }
+  ]
 }
 ```
 
-Use exact IDs from Core's model catalog. The primary is tried first, followed by up to 15 distinct fallback IDs in array order. Local and network IDs can be mixed; network use always goes through Core credit consent. Models outside this list are never added automatically. Agent `model: ""` with no fallbacks inherits the whole workflow order; an explicit Agent model uses only that node's fallbacks. Loops retain the parent order; sub-workflows retain their own saved order. The same fields are accepted by `agentSave` and workflow assistance APIs.
+Choose a **Primary model**, then **Run on → Local only / Network only / Local and network**. **Try first → Local first / Network first** appears when both locations are allowed. Each fallback has its own location controls and can be moved up or down. Models appear once in the picker; matching uses the exact catalog ID, never a guessed name or a substitute model.
 
-In the builder, choose a primary, add fallbacks, use the up/down controls to reorder them, and remove individual choices. Model availability is checked when executing. A currently unavailable primary does not prevent saving when another configured local model is ready or a network model is selected. If all choices are unavailable, the node reports failure.
+For the example above, the attempt order is Qwen locally, Qwen on the network, Phi-4 on the network, Phi-4 locally, then the custom local model. A working location remains selected for continuations. Local means the computer running Workflows and uses no network credits. Another computer owned by the same person is not automatically a local runtime. Network use retains Core's credit approval and provider eligibility checks. Core Local-Only blocks all network locations, even if the workflow allows them.
 
-Fallback advances only before generation: when a selected model is absent/unavailable, or Core returns an explicit safe-to-retry availability code. A stale observation can be refreshed once. Consent rejection, credit failures, timeouts, uncertain paid outcomes and a response that already delivered a part stop the operation; they never cause a new generation on another model. Network-capable nodes do not use generic node retries.
+Use up to 15 fallback entries. Only configured models and locations may run. An Agent with `model: ""` inherits the entire workflow policy; an explicit Agent model overrides it. Loops keep the parent policy and sub-workflows keep their own. The same fields are accepted by `agentSave` and workflow assistance APIs. Availability is checked at execution; unavailable models remain editable in saved drafts.
 
-Imports/exports preserve primary and fallback order. Old `koinos-network:auto-research`, `auto-outline` and `auto-writing` choices migrate to explicit lists with their previous known-model ordering; new models must be added explicitly. Updating saved definitions leaves prior run snapshots and results intact.
+A fallback can proceed when a location is not available before dispatch, or Core returns `network-model-unavailable` / `network-models-stale` with `safeToRetry === true`. An expired observation is refreshed at most once. For a continuation, that proof applies to the new request only: the already accepted text and remaining output budget are passed to the next configured route. No completed generation is restarted. Declined consent, credit failures, timeouts, uncertain outcomes, cancellation and unverified replies stop the operation. Network-capable nodes cannot bypass this through generic node retries. All accepted local and network parts appear in **Model results**, with network credit usage when available.
+
+New JSON files use `kai.workflow` version **2**, so older plugins reject them instead of ignoring location controls. Version 1 imports and legacy string IDs remain supported: `koinos-network:phi-4` becomes Phi-4 with Network only, and a local alias stays Local only. Existing definitions migrate once without broadening allowed locations or changing prior run snapshots, results or schedules. Old task aliases migrate to explicit editable lists; no automatic task rankings are introduced.
 
 ## Starter workflows
 
-Workflows **0.3.11** includes [Researched article](../examples/researched-article.workflow.json). Give it `{"topic":"Your article topic","word_count":1800}`. It fetches web evidence and uses explicit primary and fallback network models for topic research, outlining, and a researcher/writer pair per section. See [setup, credit reviews and limits](article-workflow.md).
+Workflows **0.3.12** includes [Researched article](../examples/researched-article.workflow.json). Give it `{"topic":"Your article topic","word_count":1800}`. It fetches web evidence and uses explicit primary and fallback network models for topic research, outlining, and a researcher/writer pair per section. See [setup, credit reviews and limits](article-workflow.md).
 
 | File | Input to paste when running | Result |
 | --- | --- | --- |

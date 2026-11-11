@@ -13,7 +13,10 @@
       "const": "kai.workflow"
     },
     "version": {
-      "const": 1
+      "enum": [
+        1,
+        2
+      ]
     },
     "workflow": {
       "type": "object",
@@ -47,11 +50,33 @@
           "maxItems": 15,
           "uniqueItems": true,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "$ref": "#/$defs/modelChoice"
+              }
+            ]
           },
-          "description": "Explicit fallback model IDs in attempt order. Requires a primary model."
+          "description": "Ordered fallback choices with their own allowed locations and preference. Legacy string IDs are accepted and preserve their original source."
+        },
+        "modelSource": {
+          "enum": [
+            "local",
+            "network",
+            "both"
+          ],
+          "description": "Allowed locations for this model. Legacy prefixed IDs retain their original location when omitted."
+        },
+        "modelPreference": {
+          "enum": [
+            "local",
+            "network"
+          ],
+          "description": "First location to try when modelSource is both."
         }
       }
     }
@@ -162,11 +187,33 @@
               "maxItems": 15,
               "uniqueItems": true,
               "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  {
+                    "$ref": "#/$defs/modelChoice"
+                  }
+                ]
               },
-              "description": "Explicit fallback model IDs in attempt order. Requires a primary model."
+              "description": "Ordered fallback choices with their own allowed locations and preference. Legacy string IDs are accepted and preserve their original source."
+            },
+            "modelSource": {
+              "enum": [
+                "local",
+                "network",
+                "both"
+              ],
+              "description": "Allowed locations for this model. Legacy prefixed IDs retain their original location when omitted."
+            },
+            "modelPreference": {
+              "enum": [
+                "local",
+                "network"
+              ],
+              "description": "First location to try when modelSource is both."
             }
           }
         }
@@ -194,6 +241,34 @@
         },
         "input": {
           "type": "string"
+        }
+      }
+    },
+    "modelChoice": {
+      "type": "object",
+      "required": [
+        "model",
+        "modelSource"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "modelSource": {
+          "enum": [
+            "local",
+            "network",
+            "both"
+          ]
+        },
+        "modelPreference": {
+          "enum": [
+            "local",
+            "network"
+          ]
         }
       }
     }

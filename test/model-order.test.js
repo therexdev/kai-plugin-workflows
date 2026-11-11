@@ -25,7 +25,7 @@ test("ordered fallbacks skip offline primaries and never rank or add unselected 
   f.api.network.models = async () => [{ model: "a", available: false }, { model: "c", available: true }, { model: "b", available: true }, { model: "unselected", available: true }];
   assert.equal(await f.inference.run({ model: net("a"), fallbackModels: [net("b"), net("c")], prompt: "Order matters" }), "done");
   assert.deepEqual(f.requests, [net("b")]);
-  assert.equal(f.saved[0].requestedModel, net("a")); assert.equal(f.saved[0].model, net("b"));
+  assert.equal(f.saved[0].requestedModel, "a"); assert.equal(f.saved[0].model, net("b"));
   await assert.rejects(f.inference.run({ model: net("missing"), prompt: "No implicit fallback" }), /None of the selected/);
   assert.equal(f.requests.length, 1);
 });
@@ -47,7 +47,7 @@ test("local and network models can be mixed explicitly without inventing paid fa
   assert.equal(await f.inference.run({ model: net("missing"), fallbackModels: ["local-test"] }), "local");
   assert.equal(local, 2);
 });
-test("declines, uncertain failures, timeouts and partial answers never move to a ready fallback", async t => {
+test("declines, uncertain failures, timeouts and uncertain continuations never move to a ready fallback", async t => {
   for (const scenario of ["declined", "unknown", "code-only", "partial", "cancel", "privacy", "timeout", "credits"]) {
     const f = setup(t), controller = new AbortController();
     f.api.wallet.complete = async request => {
@@ -57,7 +57,7 @@ test("declines, uncertain failures, timeouts and partial answers never move to a
       if (scenario === "privacy") f.api.network.status = () => ({ privacyMode: "local-only" });
       const e = scenario === "timeout" ? new DOMException("Timed out", "TimeoutError") : Error(scenario);
       if (["partial", "cancel", "privacy", "code-only"].includes(scenario)) e.code = "network-model-unavailable";
-      if (["partial", "cancel", "privacy"].includes(scenario)) e.safeToRetry = true;
+      if (["cancel", "privacy"].includes(scenario)) e.safeToRetry = true;
       throw e;
     };
     await assert.rejects(f.inference.run({ model: net("a"), fallbackModels: [net("b"), "local-test"], maxContinuations: 2, signal: controller.signal }));
@@ -86,13 +86,13 @@ test("saved task aliases migrate once to explicit lists while run history and id
   store.change(d => { d.workflows.push(workflow); d.runs.push(run); d.workflowAgents.push({ id: "agent", model: net("auto-outline") }); d.workflowState.discovery = { model: net("auto-research"), enabled: false }; });
   const migrated = new CompanionStore(options), w = migrated.data.workflows[0];
   assert.equal(w.id, "article"); assert.equal(w.revision, 5); assert.equal(w.enabled, true);
-  assert.equal(w.model, net("qwen25-32b")); assert.equal(w.fallbackModels[0], net("deepseek-r1-32b"));
-  assert.equal(w.graph.nodes.find(n => n.type === "agent").config.model, net("mistral-small-24b"));
+  assert.equal(w.model, "qwen25-32b"); assert.equal(w.modelSource, "network"); assert.deepEqual(w.fallbackModels[0], { model: "deepseek-r1-32b", modelSource: "network", modelPreference: "network" });
+  assert.equal(w.graph.nodes.find(n => n.type === "agent").config.model, "mistral-small-24b");
   assert.deepEqual(migrated.data.runs[0], run);
   assert.doesNotMatch(JSON.stringify([w, migrated.data.workflowAgents, migrated.data.workflowState]), /auto-(research|outline|writing)/);
   const bytes = fs.readFileSync(path.join(f.root, "state.json")); new CompanionStore(options);
   assert.deepEqual(fs.readFileSync(path.join(f.root, "state.json")), bytes);
-  assert.equal(Model.importDocument(workflow).model, net("qwen25-32b"));
+  assert.equal(Model.importDocument(workflow).model, "qwen25-32b");
 });
 test("loop agents inherit workflow fallbacks and a node override uses only its own order", async t => {
   const f = setup(t), app = create(f.api); t.after(() => app.dispose());
@@ -102,7 +102,7 @@ test("loop agents inherit workflow fallbacks and a node override uses only its o
   const saved = await app.call("workflows.workflow", workflow), { id } = await app.call("workflows.run", { id: saved.id, input: "loop" });
   const run = await terminal(app, id); assert.equal(run.status, "completed", run.error);
   assert.deepEqual(f.requests, [net("a"), net("b"), net("b")]);
-  assert.deepEqual(run.frames.root.fallbackModels, [net("a")]);
+  assert.deepEqual(run.frames.root.fallbackModels, [{ model: "a", modelSource: "network", modelPreference: "network" }]);
 });
 test("network fallback keeps graph retries from restarting a possibly paid request", async t => {
   const f = setup(t), app = create(f.api); t.after(() => app.dispose());

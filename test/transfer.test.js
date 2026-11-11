@@ -55,7 +55,7 @@ test("transfer excludes runtime data and event registrations without changing th
   Object.assign(w.graph.nodes[0].config, { kind: "app_event", connectionId: "connection-hint", triggerSlug: "NEW_ISSUE", triggerId: "registration", eventBinding: "account" });
   const before = structuredClone(w), out = Transfer.exportWorkflow(w).document;
   assert.deepEqual(w, before);
-  assert.deepEqual(Object.keys(out.workflow).sort(), ["description", "enabled", "fallbackModels", "graph", "model", "name"]);
+  assert.deepEqual(Object.keys(out.workflow).sort(), ["description", "enabled", "fallbackModels", "graph", "model", "modelPreference", "modelSource", "name"]);
   assert.doesNotMatch(JSON.stringify(out), /private|secret|registration|eventBinding|triggerId/);
   assert.equal(out.workflow.graph.nodes[0].config.connectionId, "connection-hint");
   const imported = Transfer.parseDocument(JSON.stringify(w));
@@ -72,7 +72,7 @@ test("legacy steps, OpenHuman, UTF-8 BOM and fenced chat JSON are accepted", () 
 });
 test("invalid documents cannot write even a partial workflow", async t => {
   const { app } = appFixture(t);
-  const bad = ["{", "null", "[]", "42", "{}", JSON.stringify({ format: "other", version: 1 }), JSON.stringify({ format: "kai.workflow", version: 2, workflow: definition() }), JSON.stringify({ format: "kai.workflow", version: 1 }), JSON.stringify({ schema: 2, runtimeVersion: 2, workflow: definition() })];
+  const bad = ["{", "null", "[]", "42", "{}", JSON.stringify({ format: "other", version: 1 }), JSON.stringify({ format: "kai.workflow", version: 3, workflow: definition() }), JSON.stringify({ format: "kai.workflow", version: 1 }), JSON.stringify({ schema: 2, runtimeVersion: 2, workflow: definition() })];
   for (const mutate of [
     w => w.graph.version = 99,
     w => w.graph.nodes[0] = null,

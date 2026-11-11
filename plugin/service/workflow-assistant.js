@@ -10,7 +10,7 @@ class WorkflowAssistant {
   constructor(workflows) { this.workflows = workflows; this.store = workflows.store; this.busy = false; this.controller = null; }
   configure(input) {
     const enabled = input.enabled === true, policy = Model.modelPolicy(input);
-    if (enabled && !Model.modelOrder(policy).some(model => networkModel(model) || this.workflows.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("Choose an installed local model or a KAI network model for suggestions.");
+    if (enabled && !Model.modelOrder(policy).some(model => networkModel(model) || Model.localReady(this.workflows.models(), model))) throw new CompanionError("Choose an installed local model or a KAI network model for suggestions.");
     this.controller?.abort();
     return this.store.change(d => { d.workflowState ||= {}; d.workflowState.discovery = { enabled, ...policy, includeBrain: input.includeBrain === true, nextAt: Date.now() + 60000 }; });
   }
@@ -27,7 +27,7 @@ class WorkflowAssistant {
   async ask(input, signal, discover = false) {
     if (this.busy) throw new CompanionError("KAI is already preparing a workflow suggestion.");
     const policy = Model.modelPolicy(input), model = policy.model;
-    if (!Model.modelOrder(policy).some(model => networkModel(model) || this.workflows.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("Choose an installed local model or a KAI network model for workflow assistance.");
+    if (!Model.modelOrder(policy).some(model => networkModel(model) || Model.localReady(this.workflows.models(), model))) throw new CompanionError("Choose an installed local model or a KAI network model for workflow assistance.");
     signal = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(180000)]);
     this.busy = true;
     try {

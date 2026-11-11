@@ -44,7 +44,7 @@ class CompanionWorkflows {
   }
   save(input, { draft = false } = {}) {
     const spec = validate(input);
-    if (spec.steps.some(s => s.type === "prompt") && !Model.modelOrder(spec).some(model => networkModel(model) || this.models().some(m => m.alias === model && m.status === "ready"))) throw new CompanionError("Install the selected workflow model first.");
+    if (spec.steps.some(s => s.type === "prompt") && !Model.modelOrder(spec).some(model => networkModel(model) || Model.localReady(this.models(), model))) throw new CompanionError("Install the selected workflow model first.");
     for (const s of spec.steps.filter(s => s.type === "connection")) if (!this.store.data.connections.some(c => c.id === s.connectionId && c.operations.some(o => o.id === s.operationId))) throw new CompanionError("A workflow step refers to a missing connection or operation.");
     return this.store.change(d => {
       const old = input.id ? d.workflows.find(w => w.id === input.id) : null;

@@ -157,3 +157,17 @@ test("fence-only JSON continuations spend a repair instead of exhausting repeate
  const f=setup(t,[reply(truncated),reply('```json\n'),reply(truncated+tail)]);
  assert.equal(JSON.parse(await f.run()).sections.length,5);assert.deepEqual(f.saved.map(x=>x.purpose),['generate','continue','repair']);
 });
+test("a terminal format failure uses the next selected model within the shared repair budget",async t=>{
+ const f=setup(t,[reply('{}','stop',100),reply(truncated+tail,'stop',300)],{fallbackModels:[{model:'qwen25-14b',modelSource:'network'}],maxTokens:1000});
+ f.api.network.models=async()=>[{model:'gemma3-12b',available:true,maxOutput:512},{model:'qwen25-14b',available:true,maxOutput:512}];
+ assert.equal(JSON.parse(await f.run()).sections.length,5);
+ assert.deepEqual(f.calls.map(x=>x.request.model),['koinos-network:gemma3-12b','koinos-network:qwen25-14b']);
+ assert.deepEqual(f.saved.map(x=>x.purpose),['generate','repair']);assert(f.calls[1].request.max_tokens<=900);
+});
+test("an exact echoed schema is removed only when it cannot be the requested answer",async t=>{
+ const valid=JSON.parse(await setup(t,[reply(truncated+tail)]).run()),raw='```json\n'+JSON.stringify(contract)+'\n'+JSON.stringify(valid)+'\n```';
+ const f=setup(t,[reply(raw)]);assert.deepEqual(JSON.parse(await f.run()),valid);assert.equal(f.calls.length,1);assert.equal(f.saved[0].outputRecovery.kind,'echoed-output-schema');assert.equal(f.saved[0].completion.choices[0].message.content,raw);
+ assert.equal(Output.inspect(JSON.stringify({type:'object'})+'\n'+JSON.stringify(valid),contract).valid,false,'A different schema cannot be discarded');
+ assert.equal(Output.inspect(JSON.stringify(contract)+'\n'+JSON.stringify(valid)+'\n{}',contract).valid,false,'Multiple answer candidates stay invalid');
+ assert.equal(Output.inspect('{"type":"object"}\n{}',{type:'object'}).valid,false,'An already-valid first value cannot be discarded');
+});

@@ -14,3 +14,11 @@ test("unverified boundaries trigger bounded repair, save raw receipts and never 
  assert.equal(await i.run({model:"test",modelSource:"network",prompt:"Write",maxTokens:200,maxContinuations:4,continuationMode:"overlap"}),"Use the sources.");
  assert.equal(saved[1].completion.choices[0].message.content,"sources.");assert.equal(saved[1].textAssembly.valid,false);assert.equal(saved[2].textAssembly.valid,true);assert.equal(calls.length,3);assert.match(calls[2].messages.at(-1).content,/last continuation/);
 });
+test("a terminal boundary failure can be corrected by the next selected model without losing the prefix",async t=>{
+ const f=fixture(t,'kai.workflows'),models=[],saved=[],chunks=[['Use the','length'],['sources.','stop'],['Use the sources.','stop']];
+ f.api.network.models=async()=>['primary','backup'].map(model=>({model,available:true,maxOutput:256}));
+ f.api.wallet={complete:async request=>{models.push(request.model);const [content,finish_reason]=chunks.shift();return{choices:[{message:{content},finish_reason}],usage:{completion_tokens:10},koin:{state:'charged'}};},authorize:async()=>{}};
+ const i=createInference(f.api,part=>saved.push(part));
+ assert.equal(await i.run({model:'primary',modelSource:'network',fallbackModels:[{model:'backup',modelSource:'network'}],prompt:'Write',maxTokens:200,maxContinuations:4,continuationMode:'overlap'}),'Use the sources.');
+ assert.deepEqual(models,['koinos-network:primary','koinos-network:primary','koinos-network:backup']);assert.equal(saved[1].textAssembly.valid,false);
+});

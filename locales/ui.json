@@ -448,7 +448,6 @@
     "Required source topic (optional)": "Tema requerido de las fuentes (opcional)",
     "Model reply timeout (5–600 seconds)": "Tiempo de espera de respuesta del modelo (5–600 segundos)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Cada respuesta de la red tiene su propio tiempo límite. Las continuaciones pueden durar hasta 15 minutos en total. Las partes completadas se guardan en Resultados del modelo.",
-    "JSON punctuation repaired locally; no extra model call.": "Puntuación JSON corregida localmente; sin otra llamada al modelo.",
     "Used saved model output; no new model call.": "Se usó la respuesta guardada del modelo; sin otra llamada.",
     "Verified partial network reply saved.": "Respuesta parcial de la red verificada y guardada.",
     "Quality Check": "Control de calidad",
@@ -488,7 +487,8 @@
     "Research, plan, coach, draft, review and revise with evidence and bounded quality checks.": "Investiga, planifica, orienta, redacta, revisa y corrige con pruebas y controles de calidad limitados.",
     "Check required fields, counts, citations and configured rules without a model call.": "Comprueba campos, recuentos, citas y reglas sin llamar a un modelo.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "Los controles conservan la entrada y añaden valid, issues y metrics. Las citas se comprueban por ID; un revisor debe evaluar el respaldo de las afirmaciones. Los límites y listas aceptan expresiones =.",
-    "Reference URLs (JSON array or expression)": "URL de referencia (matriz JSON o expresión)"
+    "Reference URLs (JSON array or expression)": "URL de referencia (matriz JSON o expresión)",
+    "JSON formatting recovered locally; no extra model call.": "Formato JSON recuperado localmente; sin otra llamada al modelo."
   },
   "pt-BR": {
     ", and": ", e",
@@ -939,7 +939,6 @@
     "Required source topic (optional)": "Tema exigido das fontes (opcional)",
     "Model reply timeout (5–600 seconds)": "Tempo limite de resposta do modelo (5–600 segundos)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Cada resposta da rede tem seu próprio tempo limite. As continuações podem durar até 15 minutos no total. As partes concluídas são salvas em Resultados do modelo.",
-    "JSON punctuation repaired locally; no extra model call.": "Pontuação JSON corrigida localmente; sem outra chamada ao modelo.",
     "Used saved model output; no new model call.": "Resposta salva do modelo utilizada; sem nova chamada.",
     "Verified partial network reply saved.": "Resposta parcial da rede verificada e salva.",
     "Quality Check": "Verificação de qualidade",
@@ -979,7 +978,8 @@
     "Research, plan, coach, draft, review and revise with evidence and bounded quality checks.": "Pesquise, planeje, oriente, redija, revise e corrija com evidências e verificações de qualidade limitadas.",
     "Check required fields, counts, citations and configured rules without a model call.": "Verifique campos, contagens, citações e regras sem chamar um modelo.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "As verificações preservam a entrada e adicionam valid, issues e metrics. Citações são verificadas por ID; um revisor deve avaliar o apoio às afirmações. Limites e listas aceitam expressões =.",
-    "Reference URLs (JSON array or expression)": "URLs de referência (array JSON ou expressão)"
+    "Reference URLs (JSON array or expression)": "URLs de referência (array JSON ou expressão)",
+    "JSON formatting recovered locally; no extra model call.": "Formatação JSON recuperada localmente; sem outra chamada ao modelo."
   },
   "fr": {
     ", and": ", et",
@@ -1430,7 +1430,6 @@
     "Required source topic (optional)": "Sujet requis des sources (facultatif)",
     "Model reply timeout (5–600 seconds)": "Délai de réponse du modèle (5–600 secondes)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Chaque réponse du réseau a son propre délai. Les continuations peuvent durer jusqu’à 15 minutes au total. Les parties terminées sont enregistrées dans les résultats du modèle.",
-    "JSON punctuation repaired locally; no extra model call.": "Ponctuation JSON corrigée localement ; aucun appel supplémentaire au modèle.",
     "Used saved model output; no new model call.": "Réponse enregistrée du modèle réutilisée ; aucun nouvel appel.",
     "Verified partial network reply saved.": "Réponse partielle du réseau vérifiée et enregistrée.",
     "Quality Check": "Contrôle qualité",
@@ -1470,7 +1469,8 @@
     "Research, plan, coach, draft, review and revise with evidence and bounded quality checks.": "Recherchez, planifiez, guidez, rédigez, relisez et corrigez avec des preuves et des contrôles qualité bornés.",
     "Check required fields, counts, citations and configured rules without a model call.": "Vérifiez champs, nombres, références et règles sans appel de modèle.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "Les contrôles conservent l’entrée et ajoutent valid, issues et metrics. Les références sont vérifiées par identifiant ; un relecteur doit évaluer les preuves. Limites et listes acceptent les expressions =.",
-    "Reference URLs (JSON array or expression)": "URL de référence (tableau JSON ou expression)"
+    "Reference URLs (JSON array or expression)": "URL de référence (tableau JSON ou expression)",
+    "JSON formatting recovered locally; no extra model call.": "Format JSON récupéré localement ; aucun appel supplémentaire au modèle."
   },
   "de": {
     ", and": "und",
@@ -1921,7 +1921,6 @@
     "Required source topic (optional)": "Erforderliches Quellenthema (optional)",
     "Model reply timeout (5–600 seconds)": "Zeitlimit für Modellantworten (5–600 Sekunden)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Jede Netzwerkantwort hat ein eigenes Zeitlimit. Fortsetzungen können insgesamt bis zu 15 Minuten dauern. Abgeschlossene Teile werden in den Modellergebnissen gespeichert.",
-    "JSON punctuation repaired locally; no extra model call.": "JSON-Zeichensetzung lokal korrigiert; kein zusätzlicher Modellaufruf.",
     "Used saved model output; no new model call.": "Gespeicherte Modellausgabe verwendet; kein neuer Modellaufruf.",
     "Verified partial network reply saved.": "Verifizierte Teilantwort aus dem Netzwerk gespeichert.",
     "Quality Check": "Qualitätsprüfung",
@@ -1961,6 +1960,7 @@
     "Research, plan, coach, draft, review and revise with evidence and bounded quality checks.": "Recherchieren, planen, anleiten, schreiben, prüfen und überarbeiten mit Belegen und begrenzten Qualitätsprüfungen.",
     "Check required fields, counts, citations and configured rules without a model call.": "Felder, Anzahlen, Zitate und Regeln ohne Modellaufruf prüfen.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "Prüfungen behalten die Eingabe und ergänzen valid, issues und metrics. Zitate werden anhand ihrer IDs geprüft; ein Prüfer muss die Belege bewerten. Grenzen und Listen erlauben = Ausdrücke.",
-    "Reference URLs (JSON array or expression)": "Referenz-URLs (JSON-Array oder Ausdruck)"
+    "Reference URLs (JSON array or expression)": "Referenz-URLs (JSON-Array oder Ausdruck)",
+    "JSON formatting recovered locally; no extra model call.": "JSON-Format lokal wiederhergestellt; kein zusätzlicher Modellaufruf."
   }
 }

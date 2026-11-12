@@ -4,9 +4,9 @@ Requires Workflows 0.3.18 and Core 0.7.28 or later. Open **Templates → AIO res
 
 ## What runs
 
-1. Read topic evidence and prepare a research/strategy brief.
+1. Read topic evidence and prepare a compact structured research/strategy brief.
 2. Plan a distinct angle, headings and requirements, then review and revise the outline.
-3. For each section, read sources, create an evidence-backed coaching card, draft prose, run mechanical checks, and review factual support, citation coverage, reader intent, clarity and repetition.
+3. For each section, read sources, create a compact structured coaching card, draft prose, run mechanical checks, and review factual support, citation coverage, reader intent, clarity and repetition.
 4. Revise only reported issues and recheck the result. Mechanical errors go straight to the reviser; semantic review runs after those checks pass. Accepted sections and all review attempts remain in run history.
 5. Create a direct answer, takeaways, four FAQ answers, metadata and social copy from reviewed section summaries, then review them.
 6. Derive FAQ JSON-LD from the final FAQ, verify parity and references, and perform a final cross-section coverage review using the reviewed section summaries and extras.
@@ -15,7 +15,7 @@ This adapts the supplied AIO Content Studio's article pipeline. It does not migr
 
 ## Editing it
 
-**Article settings and context** holds audience, language, style, verified client facts, revision limit, word tolerance and forbidden phrases. Those are workflow configuration, not global editorial policy. Do not put secrets in an exported workflow. Agent nodes hold editable primary and ordered fallback models and their allowed locations. The supplied model choices are defaults, not a promise that providers are online.
+**Article settings and context** holds audience, language, style, verified client facts, revision limit, word tolerance and forbidden phrases. Those are workflow configuration, not global editorial policy. Do not put secrets in an exported workflow. Agent nodes hold editable primary and ordered fallback models and their allowed locations. The supplied Gemma 3 12B / Qwen 2.5 14B choices are editable defaults, not a promise that providers are online.
 
 Review/revision prompts send the current artifact, relevant evidence and outstanding issues; full review history stays in the run record. Each section reviewer also produces a short cited summary. Extras and the final cross-section check use those summaries so long articles fit network models with 4096-token context windows. Every full section is reviewed before summarization.
 
@@ -29,6 +29,6 @@ The workflow canonicalizes parenthesized source IDs such as `(S1-1)` into `[S1-1
 
 Network work uses Core credit consent. Model continuations, JSON repairs and editorial revisions may use additional credits, all within configured limits. Paid requests with uncertain outcomes do not trigger blind retries. Use **Retry failed work** for an eligible failed model or source step to retain completed work; **Run again** starts over.
 
-Text agents use **Verify repeated ending**. Continuations repeat an exact suffix; the runner removes only that verified overlap, preserving split words, whitespace, links and hyphens. An invalid boundary can request at most two corrections within the same token/continuation limits. Raw replies and receipts remain unchanged. Existing custom workflows retain their prior behavior; opt in per text Agent or use this new template.
+Text agents use **Verify repeated ending**. Continuations repeat an exact suffix; the runner removes only that verified overlap, preserving split words, whitespace, links and hyphens. An invalid boundary can request at most two corrections within the same token/continuation limits, advancing through the configured model order after a terminal invalid reply. JSON format corrections use that same bounded fallback policy; uncertain paid requests are never replaced blindly. Raw replies and receipts remain unchanged. Existing custom workflows retain their prior behavior; opt in per text Agent or use this new template.
 
 The importer creates a new draft rather than overwriting your existing article workflow. Installing a plugin update alone does not replace your customized graph with this AIO pipeline.

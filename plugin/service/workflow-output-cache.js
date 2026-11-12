@@ -9,6 +9,10 @@ function recoverSavedJSON(run, token, schema) {
   if (!run.retryHistory?.length) return null;
   const failed = [...run.steps].reverse().find(s => s.token === token && s.status === "failed");
   if (!failed || !/^The model did not return JSON matching the required output\./.test(failed.error || "") || !Number.isFinite(failed.at) || !Number.isFinite(failed.finishedAt)) return null;
+  const current = [...run.steps].reverse().find(s => s.token === token && s.status === "running");
+  // Retried research may change source IDs or page text. A paid answer to the
+  // old evidence is reusable only when this attempt has the same input.
+  if (!Array.isArray(failed.input) || !Array.isArray(current?.input) || !require("node:util").isDeepStrictEqual(failed.input, current.input)) return null;
   try { Output.checkSchema(schema); } catch { return null; }
   const overlapping = run.steps.some(s => s !== failed && s.type === "agent" && s.at < failed.finishedAt && (s.finishedAt ?? Infinity) > failed.at);
   let answer = "", parts = [], started = false, recovered = null;

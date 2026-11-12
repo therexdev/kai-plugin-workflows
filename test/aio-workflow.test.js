@@ -10,9 +10,9 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
   assert(Buffer.byteLength(JSON.stringify(request.messages))<=24000,"Never silently truncate a model packet");
   const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let content;
   const packet=()=>p.includes("Packet: ")?JSON.parse(p.match(/Packet: (.+)/)[1]):({artifact:p.match(/Artifact: (.+)/)[1],context:JSON.parse(p.match(/Context: (.+)/)[1])});
-  if(stage==="AIO_RESEARCH")content="AI learns patterns from training data. [S0-1] Explain training, inference and limits.";
+  if(stage==="AIO_RESEARCH")content=JSON.stringify({intent:"Explain AI",facts:["AI learns from data. [S0-1]","Training identifies patterns. [S0-1]"],gaps:"Limited evidence.",angle:"Training versus inference"});
   else if(stage==="AIO_OUTLINE"){const n=Number(p.match(/Exactly (\d+) sections/)[1]);content=JSON.stringify({title:"Understanding how artificial intelligence works",angle:"Explain training versus inference",sections:Array.from({length:n},(_,i)=>({heading:"AI topic "+(i+1),points:["Explain the evidence","Give a useful example"]}))});}
-  else if(stage==="AIO_COACH")content="Explain training with evidence and simple examples.";
+  else if(stage==="AIO_COACH")content=JSON.stringify({focus:"Explain training simply",facts:["Models learn from data."],gaps:"Limited evidence."});
   else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]);content=Array(a.section.word_count).fill("Evidence").join(" ");}
   else if(stage.endsWith("_REVIEW")){
    let needs=false;if(stage==="SECTION_REVIEW_REVIEW"){const a=packet();needs=stuck||!a.artifact.includes("[S");}

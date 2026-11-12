@@ -4,7 +4,7 @@ const { recoverSavedJSON } = require("../plugin/service/workflow-output-cache");
 const schema = { type: "object", required: ["points"], properties: { points: { type: "array", minItems: 2, items: { type: "string" } } } };
 const token = "root/planner/0", raw = '{"points":["one","two"}';
 function run(identified = true) {
-  return { retryHistory: [{}], steps: [{ token, type: "agent", status: "failed", at: 100, finishedAt: 200, error: "The model did not return JSON matching the required output. The 2-repair limit is exhausted." }, { token, type: "agent", status: "running", at: 300 }],
+  return { retryHistory: [{}], steps: [{ token, type: "agent", input: [{sources:[{id:"S1-1",text:"Original evidence"}]}], status: "failed", at: 100, finishedAt: 200, error: "The model did not return JSON matching the required output. The 2-repair limit is exhausted." }, { token, type: "agent", input: [{sources:[{id:"S1-1",text:"Original evidence"}]}], status: "running", at: 300 }],
     networkCalls: [{ ...(identified ? { stepKey: token, attemptStartedAt: 100 } : {}), purpose: "generate", at: 150, completion: { choices: [{ message: { content: raw } }] } }] };
 }
 test("explicit retry can reuse a complete saved response, including the older unambiguous time-window format", () => {
@@ -36,3 +36,5 @@ test("retry recovers separately fenced saved fragments without changing receipts
  const unchanged=structuredClone(r),result=recoverSavedJSON(r,token,{type:'object',required:['sections'],properties:{sections:{type:'array',minItems:7,maxItems:7}}});
  assert.equal(JSON.parse(result.text).sections.length,7);assert.deepEqual(result.detail.callIndices,[0,1]);assert.deepEqual(r,unchanged);
 });
+
+test("saved recovery never reuses an answer after the current evidence changes",()=>{const r=run();r.steps[1].input[0].sources[0].text="Refreshed different evidence";assert.equal(recoverSavedJSON(r,token,schema),null);delete r.steps[1].input;assert.equal(recoverSavedJSON(r,token,schema),null);});

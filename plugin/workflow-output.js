@@ -67,6 +67,11 @@
     return object(a) && object(b) && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => Object.hasOwn(b, k) && equal(a[k], b[k]));
   }
   const unfence = text => text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  // Some providers wrap each continuation separately. Strip only standalone
+  // fence lines from that new fragment, never backticks inside JSON strings.
+  function continuationText(text) {
+    return text.replace(/^\s*```(?:json)?[ \t]*\r?\n/i, "").replace(/(?:^|\r?\n)[ \t]*```[ \t]*$/, "");
+  }
   // Insert only a missing container closer when a later, existing closer proves
   // where that container ends. Never complete EOF, strings, values or fields.
   // The repaired document must still parse and satisfy the entire schema.
@@ -123,5 +128,5 @@
     }
     return quoted || stack.length > 0;
   }
-  return { checkSchema, validate, inspect };
+  return { checkSchema, validate, inspect, continuationText };
 });

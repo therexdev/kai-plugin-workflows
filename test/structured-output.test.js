@@ -143,3 +143,17 @@ test("existing article definitions gain JSON contracts once without changing mod
   assert.equal(Model.migrateOutputs(custom), false);
 });
 module.exports = { truncated, tail };
+
+test("captured seven-section live outline joins per-fragment fences without a paid repair",async t=>{
+ const parts=require('./fixtures/gemma-fragment-fences.json'),schema=structuredClone(contract);schema.properties.sections.minItems=schema.properties.sections.maxItems=7;
+ const f=setup(t,parts.map((text,i)=>reply(text,i?'stop':'length',i?182:256)),{outputSchema:schema,maxFormatRepairs:0});
+ const result=JSON.parse(await f.run());assert.equal(result.sections.length,7);assert.equal(f.calls.length,2);
+ assert.equal(f.saved[1].jsonAssembly.removedFenceLines,true);assert.equal(f.saved[1].completion.choices[0].message.content,parts[1]);
+ assert.match(result.sections[3].points[1],/data volume/);
+ assert.equal(Output.continuationText('literal ```json backticks'), 'literal ```json backticks');
+});
+
+test("fence-only JSON continuations spend a repair instead of exhausting repeated continuations",async t=>{
+ const f=setup(t,[reply(truncated),reply('```json\n'),reply(truncated+tail)]);
+ assert.equal(JSON.parse(await f.run()).sections.length,5);assert.deepEqual(f.saved.map(x=>x.purpose),['generate','continue','repair']);
+});

@@ -20,7 +20,7 @@ function recoverSavedJSON(run, token, schema) {
     if (typeof text !== "string" || text.length > 200000) return null;
     if (call.purpose === "generate" || call.purpose === "repair") { answer = ""; parts = []; started = true; }
     else if (call.purpose !== "continue" || !started) continue;
-    answer += text; parts.push(index); if (answer.length > 200000) return null;
+    answer += call.purpose === "continue" ? Output.continuationText(text) : text; parts.push(index); if (answer.length > 200000) return null;
     let checked = Output.inspect(answer, schema);
     if (!checked.valid && call.purpose === "continue") { const replacement = Output.inspect(text, schema); if (replacement.valid) { checked = replacement; parts = [index]; } }
     if (checked.valid) recovered = { text: checked.text, detail: { source: "saved-model-results", callIndices: [...parts], previousAttemptAt: failed.at, ...(checked.recovery ? { outputRecovery: checked.recovery } : {}) } };

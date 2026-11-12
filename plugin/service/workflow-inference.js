@@ -86,7 +86,8 @@ function createInference(api, recordResult) {
       // even when the service closes the job and labels its last frame "stop".
       const interrupted = chosen.source === "network" && (completion.koin?.state === "streaming" || completion.koin?.receipt?.sequence !== undefined);
       const terminal = !interrupted || completion.koin.state === "charged";
-      const joined = safeText && purpose === "continue" ? Continuation.append(answer, chunk, Continuation.anchor(answer)) : { valid: true, text: answer + chunk };
+      const fragment = json && purpose === "continue" ? Output.continuationText(chunk) : chunk;
+      const joined = safeText && purpose === "continue" ? Continuation.append(answer, chunk, Continuation.anchor(answer)) : { valid: true, text: answer + fragment };
       if (joined.valid) answer = joined.text;
       let checked;
       if (json) {
@@ -96,12 +97,14 @@ function createInference(api, recordResult) {
         if (!checked.valid && purpose === "continue") {
           const replacement = Output.inspect(chunk, schema, options.allowToolCall);
           if (replacement.valid) checked = replacement;
+          else if (!fragment.trim()) checked.incomplete = false;
         }
       }
       // Save every accepted part before acknowledging a paid network delivery.
       await recordResult({ model: chosen.alias, source: chosen.source, requestedModel: options.model, modelSource: options.modelSource,
         modelPreference: options.modelPreference, fallbackModels: options.fallbackModels, part, purpose, completion, at: Date.now(),
         stepKey: options.stepKey, attemptStartedAt: options.attemptStartedAt, ...(interrupted ? { interrupted: true, terminal } : {}), ...(checked?.recovery ? { outputRecovery: checked.recovery } : {}),
+        ...(fragment !== chunk ? { jsonAssembly: { removedFenceLines: true } } : {}),
         ...(safeText && purpose === "continue" ? { textAssembly: { valid: joined.valid, overlap: joined.overlap || 0, ...(joined.error ? { error: joined.error } : {}) } } : {}) }, options.runId);
       if (!terminal) throw new CompanionError("The provider is still completing the saved network request. Its verified partial reply is saved in Model results. Retry failed work after the request finishes; no replacement request was started.");
       if (chosen.source === "network" && typeof completion.id === "string" && /^[a-f0-9]{64}$/.test(completion.id)) {

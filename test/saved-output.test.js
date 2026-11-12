@@ -30,3 +30,9 @@ test("saved continuation and repair groups are assembled separately and choose a
   next.purpose = "repair"; next.completion.choices[0].message.content = raw.replace("two", "three");
   const result = recoverSavedJSON(r, token, schema); assert.deepEqual(result.detail.callIndices, [1]); assert.deepEqual(JSON.parse(result.text).points, ["one", "three"]);
 });
+test("retry recovers separately fenced saved fragments without changing receipts",()=>{
+ const r=run(),before=structuredClone(r),parts=require('./fixtures/gemma-fragment-fences.json');
+ r.networkCalls=parts.map((content,i)=>({...structuredClone(before.networkCalls[0]),purpose:i?'continue':'generate',at:150+i,completion:{choices:[{message:{content}}]}}));
+ const unchanged=structuredClone(r),result=recoverSavedJSON(r,token,{type:'object',required:['sections'],properties:{sections:{type:'array',minItems:7,maxItems:7}}});
+ assert.equal(JSON.parse(result.text).sections.length,7);assert.deepEqual(result.detail.callIndices,[0,1]);assert.deepEqual(r,unchanged);
+});

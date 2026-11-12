@@ -378,7 +378,7 @@ async function searchBusinesses(category, location, { fetchImpl = fetch, timeout
   return { location: places[0].display_name || place, category: wanted, columns: ["Name", "Address", "Phone", "Website", "Source"], rows, attribution: "Business data © OpenStreetMap contributors", sourceUrl: "https://www.openstreetmap.org/copyright" };
 }
 
-async function searchWeb(q, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS, ddgUrl, bingUrl, wikiUrl } = {}) {
+async function searchWeb(q, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS, ddgUrl, bingUrl, wikiUrl, acceptResult = () => true } = {}) {
   const query = String(q || "").trim().slice(0, 400);
   if (!query) return { results: [], source: "none" };
   // Primary: DuckDuckGo HTML (keyless, full-web).
@@ -389,7 +389,7 @@ async function searchWeb(q, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS, d
       headers: BROWSER_HEADERS,
     });
     if (r.ok) {
-      const results = parseDdgHtml(await r.text());
+      const results = parseDdgHtml(await r.text()).filter(acceptResult);
       if (results.length) return { results, source: "duckduckgo" };
     }
   } catch {
@@ -401,7 +401,7 @@ async function searchWeb(q, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS, d
     const u = (bingUrl || "https://www.bing.com/search") + "?format=rss&q=" + encodeURIComponent(query);
     const r = await fetchImpl(u, { signal: AbortSignal.timeout(timeoutMs), headers: BROWSER_HEADERS });
     if (r.ok) {
-      const results = parseBingRss(await r.text());
+      const results = parseBingRss(await r.text()).filter(acceptResult);
       if (results.length) return { results, source: "bing" };
     }
   } catch {
@@ -417,7 +417,7 @@ async function searchWeb(q, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS, d
       const [, titles = [], descs = [], urls = []] = await r.json();
       const results = titles
         .map((t, i) => ({ title: String(t).slice(0, 120), url: String(urls[i] || "").slice(0, 500), snippet: String(descs[i] || "").slice(0, 300) }))
-        .filter((x) => isPublicHttpUrl(x.url));
+        .filter((x) => isPublicHttpUrl(x.url)).filter(acceptResult);
       if (results.length) return { results, source: "wikipedia" };
     }
   } catch {

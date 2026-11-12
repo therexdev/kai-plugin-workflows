@@ -9,8 +9,8 @@ const source = fs.readFileSync(path.join(__dirname,"../examples/researched-artic
 const lookup = async () => [{ address:"8.8.8.8",family:4 }];
 function webMock(url) {
   if (url.includes("duckduckgo.com")) return new Response("<html></html>");
-  if (url.includes("bing.com")) return new Response('<rss><channel><item><title>Original research</title><link>https://evidence.example/report</link><description>A report</description></item></channel></rss>');
-  if (url === "https://evidence.example/report") return new Response("<html><title>Original research</title><p>Evidence about the requested topic. "+"Source facts and examples. ".repeat(100)+"</p></html>",{headers:{"content-type":"text/html"}});
+  if (url.includes("bing.com")) return new Response('<rss><channel><item><title>AI research and evidence</title><link>https://evidence.example/report</link><description>Evidence about AI models and training</description></item></channel></rss>');
+  if (url === "https://evidence.example/report") return new Response("<html><title>AI research and evidence</title><p>Evidence about AI models and training. "+"Source facts and examples. ".repeat(100)+"</p></html>",{headers:{"content-type":"text/html"}});
   throw Error("Unexpected egress: "+url);
 }
 test("network continuations respect the provider cap, review each part and retain the actual model", async t => {

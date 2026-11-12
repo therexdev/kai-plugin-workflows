@@ -9,7 +9,7 @@ const models = {
 const policy = role => ({ model: "koinos-network:" + models[role][0], fallbackModels: models[role].slice(1).map(m => "koinos-network:" + m) });
 const add = (type, id, label, config, x = 120, y = nodes.length * 150 + 60) => nodes.push(M.node(type, id, { x, y }, config, label));
 const link = (a, b, port = "main") => edges.push(M.edge(a, b, port));
-const agent = (id, label, role, prompt, tokens) => add("agent", id, label, { ...policy(role), profile: role === "outline" ? "planner" : role === "writing" ? "writer" : "researcher", prompt, maxTurns: 1, maxTokens: tokens, maxContinuations: 16, timeoutSeconds: 180, retries: 0, tools: [] });
+const agent = (id, label, role, prompt, tokens) => add("agent", id, label, { ...policy(role), profile: role === "outline" ? "planner" : role === "writing" ? "writer" : "researcher", prompt, maxTurns: 1, maxTokens: tokens, maxContinuations: 16, timeoutSeconds: 600, retries: 0, tools: [] });
 add("trigger", "start", "Enter topic and word count", { kind: "manual", inputFields: [{ name: "topic", type: "string", required: true }, { name: "word_count", type: "integer", required: true }] });
 add("code", "brief", "Set section word budgets", { source: String.raw`
 const topic = input.topic.trim(), total = input.word_count;
@@ -20,7 +20,7 @@ const end = Math.min(150, Math.max(30, Math.round(total * .08)));
 const body = total - intro - end, n = Math.max(1, Math.ceil(body / 300));
 const budgets = [intro, ...Array.from({length:n}, (_,i) => Math.floor(body/n) + (i < body % n ? 1 : 0)), end];
 return [{topic, word_count:total, budgets, section_count:budgets.length}];` });
-add("web_research", "topic_sources", "Find and read topic sources", { query: "{{nodes.brief.topic}}", maxPages: 4 });
+add("web_research", "topic_sources", "Find and read topic sources", { query: "{{nodes.brief.topic}}", topic: "{{nodes.brief.topic}}", maxPages: 4 });
 agent("topic_researcher", "Research relevant topics", "research", `STAGE: TOPIC_DISCOVERY
 Create a concise research map for an article. Do not ask questions. Assume an informed general audience and English unless the topic clearly requests another language. No QA stage.
 Topic: {{nodes.brief.topic}}
@@ -48,7 +48,7 @@ add("code", "section", "Give this section to the two agents", { source: String.r
 const state = item, s = state.sections[state.index];
 if (!s) throw Error("Missing section.");
 return [{...state, section:s, outline:state.sections.map(x=>({heading:x.heading,word_count:x.word_count})), search_query:(state.topic + " " + s.heading + " " + s.points[0]).slice(0,400)}];` }, 520, 1300);
-add("web_research", "section_sources", "Read sources for this section", { query: "{{item.search_query}}", maxPages: 3 }, 520, 1450);
+add("web_research", "section_sources", "Read sources for this section", { query: "{{item.topic}} {{item.section.heading}}", topic: "{{item.topic}}", maxPages: 3 }, 520, 1450);
 add("code", "evidence", "Label readable source evidence", { source: String.raw`
 return [{sources:item.sources.filter(s=>s.read).map((s,i)=>({id:"S"+nodes.section.section.id+"-"+(i+1),title:s.title,url:s.url,text:s.text,excerpt:true})),retrieved_at:item.retrievedAt}];` }, 520, 1600);
 agent("section_researcher", "Agent 1 · Research this section", "research", `STAGE: SECTION_RESEARCH
@@ -83,5 +83,5 @@ add("output", "article", "Article, outline and sources", { text: "# {{item.title
 for (const [a,b] of [["start","brief"],["brief","topic_sources"],["topic_sources","topic_researcher"],["topic_researcher","outline_agent"],["outline_agent","plan"],["plan","sections"],["section","section_sources"],["section_sources","evidence"],["evidence","section_researcher"],["section_researcher","section_writer"],["section_writer","collect"],["collect","sections"]]) link(a,b);
 link("sections","section","body"); link("sections","article","done");
 for (const [id,y] of [["section_researcher",1750],["section_writer",1900]]) Object.assign(nodes.find(n=>n.id===id).position,{x:520,y});
-const document = M.exportDocument({name:"Researched article · KAI network",description:"Workflows 0.3.13+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Validated JSON outline with bounded recovery; editable primary and ordered fallback models; public web research; no QA stage or clarification questions. Core credit consent applies to network requests and continuations. Word count is a target; actual counts are reported without an editing pass.",...policy("research"),enabled:false,graph:{version:2,nodes,edges}});
+const document = M.exportDocument({name:"Researched article · KAI network",description:"Workflows 0.3.14+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Validated JSON outline with bounded recovery; editable primary and ordered fallback models; public web research; no QA stage or clarification questions. Core credit consent applies to network requests and continuations. Word count is a target; actual counts are reported without an editing pass.",...policy("research"),enabled:false,graph:{version:2,nodes,edges}});
 fs.writeFileSync(path.join(__dirname,"../examples/researched-article.workflow.json"), JSON.stringify(document,null,2)+"\n");

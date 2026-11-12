@@ -52,6 +52,19 @@ test("a slow individual reply fails clearly, retains completed parts and never r
   assert.equal(f.saved[0].completion.choices[0].message.content, "Saved outline prefix");
 });
 
+test("the new 600-second model setting survives a single reply beyond the old 180-second cutoff", async t => {
+  const f = setup(t), app = create(f.api); t.after(() => app.dispose());
+  const spec = Model.template("ask", ALIAS);
+  const saved = await app.call("workflows.workflow", spec);
+  assert.equal(saved.graph.nodes.find(n => n.type === "agent").config.timeoutSeconds, 600);
+  const { id } = await app.call("workflows.run", { id: saved.id });
+  await flush(); t.mock.timers.tick(240000); await flush();
+  assert.equal(f.pending[0].signal.aborted, false);
+  f.pending[0].resolve(reply("Slow but complete")); await flush();
+  const run = await app.call("workflows.runGet", { id });
+  assert.equal(run.status, "completed", run.error); assert.equal(f.pending.length, 1);
+});
+
 test("run history identifies a reply timeout instead of hiding it behind a generic node failure", async t => {
   const f = setup(t), app = create(f.api); t.after(() => app.dispose());
   const spec = Model.template("ask", ALIAS), agent = spec.graph.nodes.find(n => n.type === "agent");

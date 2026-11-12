@@ -24,6 +24,12 @@ async function manage(service,ctx,action,input={}){if(action==="status")return s
       case "removeWorkflow": return service.workflows.remove(input.id);
       case "run": return service.workflows.begin(input.id, input.input);
       case "cancelRun": return service.workflows.cancel(input.id);
+      case "retryRun": {
+        const run = service.workflows.get(input.id), plan = service.workflows.retryPlan(input.id);
+        if (!await ctx.confirm("Retry failed work?", { workflow: run.name, completedStepsKept: plan.completedSteps, refreshResearch: plan.refreshed,
+          message: "Completed model steps and sections are kept. Only failed work and its source-reading steps are retried. The interrupted model request may need recovery or a new generation and may use additional credits." })) return false;
+        ctx.signal.throwIfAborted(); return service.workflows.retry(input.id, plan.fingerprint);
+      }
       case "resume": {
         const run = service.workflows.get(input.id); if (!run) throw new CompanionError("Run no longer exists.");
         if (!await ctx.confirm("Resume " + run.name, run.pending || { nextStep: run.index + 1 })) throw new CompanionError("Run remains paused.");

@@ -81,6 +81,30 @@
     } });
     return true;
   }
+  function migrateReliability(workflow) {
+    const nodes = workflow.graph?.nodes || [];
+    if (!nodes.some(n => n.id === "plan" && n.type === "code" && n.config?.source?.includes("Outline was not valid JSON; inspect the saved outline response."))) return false;
+    let changed = false;
+    for (const n of nodes) {
+      const c = n.config || {};
+      if (n.type === "agent" && /^STAGE: (TOPIC_DISCOVERY|OUTLINE|SECTION_RESEARCH|SECTION_WRITING)\n/.test(c.prompt || "") && c.timeoutSeconds === 180) { c.timeoutSeconds = 600; changed = true; }
+      if (n.id === "topic_sources" && n.type === "web_research" && c.query === "{{nodes.brief.topic}}" && c.topic === undefined) { c.topic = "{{nodes.brief.topic}}"; changed = true; }
+      if (n.id === "section_sources" && n.type === "web_research" && c.query === "{{item.search_query}}" && c.topic === undefined) { c.query = "{{item.topic}} {{item.section.heading}}"; c.topic = "{{item.topic}}"; changed = true; }
+    }
+    return changed;
+  }
+  function canRetryRun(run) {
+    if (run?.status !== "failed" || !run.spec?.graph || run.inFlight || !run.frames) return false;
+    let leaves = 0;
+    for (const frame of Object.values(run.frames)) for (const [id, state] of Object.entries(frame.states || {})) {
+      if (["running", "waiting"].includes(state.status)) return false;
+      if (state.status !== "failed") continue;
+      const type = frame.graph.nodes.find(n => n.id === id)?.type;
+      if (["agent", "web_research"].includes(type)) leaves++;
+      else if (!["loop", "sub_workflow"].includes(type)) return false;
+    }
+    return leaves > 0;
+  }
   const catalog = [
     ["trigger", "Trigger", "Start", "Start manually, on a schedule, or when a source changes.", "⚡"],
     ["agent", "Agent", "Actions", "Ask a local or KAI network model to reason, write, or use selected read tools.", "✦"],
@@ -103,7 +127,7 @@
   ].map(([type, name, group, description, icon]) => ({ type, name, group, description, icon }));
   const types = catalog.map(x => x.type), meta = type => catalog.find(x => x.type === type);
   function defaults(type) {
-    return clone({ trigger: { kind: "manual", schedule: { kind: "daily", hour: 9, minute: 0, day: 1 }, inputFields: [] }, agent: { prompt: "Summarize this input and suggest next steps:\n{{previous}}", profile: "assistant", model: "", fallbackModels: [], execution: "once", maxTurns: 3, tools: [] }, tool_call: { connectionId: "", operationId: "", variables: {}, body: {}, execution: "per_item" }, http_request: { method: "GET", url: "https://api.example.com/data", headers: {}, body: {}, execution: "per_item" }, web_research: { query: "{{input}}", maxPages: 3, execution: "once" }, code: { language: "javascript", source: "return items;" }, sub_workflow: { workflowId: "", execution: "once" }, memory: { operation: "search", query: "{{input}}", limit: 8 }, approval: { text: "Review this result:\n{{previous}}" }, condition: { expression: "=Boolean(item.text)", operator: "truthy", value: "" }, switch: { expression: "=item.status", cases: ["ready", "pending"] }, merge: { mode: "append", key: "id" }, split_out: { field: "=item.json", keepFields: false }, transform: { set: { summary: "=item.text" }, keepFields: true }, output_parser: { format: "json", field: "=item.text", required: "" }, dedup: { key: "=item.id", scope: "workflow" }, loop: { maxIterations: 3, condition: "", onExceeded: "continue" }, output: { text: "{{previous}}", saveChat: false } }[type] || {});
+    return clone({ trigger: { kind: "manual", schedule: { kind: "daily", hour: 9, minute: 0, day: 1 }, inputFields: [] }, agent: { prompt: "Summarize this input and suggest next steps:\n{{previous}}", profile: "assistant", model: "", fallbackModels: [], execution: "once", maxTurns: 3, timeoutSeconds: 600, tools: [] }, tool_call: { connectionId: "", operationId: "", variables: {}, body: {}, execution: "per_item" }, http_request: { method: "GET", url: "https://api.example.com/data", headers: {}, body: {}, execution: "per_item" }, web_research: { query: "{{input}}", maxPages: 3, execution: "once" }, code: { language: "javascript", source: "return items;" }, sub_workflow: { workflowId: "", execution: "once" }, memory: { operation: "search", query: "{{input}}", limit: 8 }, approval: { text: "Review this result:\n{{previous}}" }, condition: { expression: "=Boolean(item.text)", operator: "truthy", value: "" }, switch: { expression: "=item.status", cases: ["ready", "pending"] }, merge: { mode: "append", key: "id" }, split_out: { field: "=item.json", keepFields: false }, transform: { set: { summary: "=item.text" }, keepFields: true }, output_parser: { format: "json", field: "=item.text", required: "" }, dedup: { key: "=item.id", scope: "workflow" }, loop: { maxIterations: 3, condition: "", onExceeded: "continue" }, output: { text: "{{previous}}", saveChat: false } }[type] || {});
   }
   const node = (type, id, position, config = {}, label) => ({ id, type, label: label || meta(type)?.name || type, config: { ...defaults(type), ...config }, position: position || { x: 80, y: 80 } });
   const edge = (from, to, port = "main", input = "main") => ({ id: [from, port, to, input].join(":"), from, to, port, input });
@@ -168,6 +192,7 @@
     if (g.edges.some(e => typeof e.from !== "string" || typeof e.to !== "string" || (e.port !== undefined && typeof e.port !== "string") || (e.input !== undefined && typeof e.input !== "string"))) throw Error("Connections need source and destination node IDs.");
     const graph = { version: 2, nodes: g.nodes, edges: g.edges.map(e => edge(e.from, e.to, e.port || "main", e.input || "main")) };
     migrateOutputs({ graph });
+    migrateReliability({ graph });
     const report = validateGraph(graph);
     const structural = report.errors.filter(e => /unique letter|missing node|Unknown output port|duplicate connection|incoming connections|exactly one trigger|Close cycles/.test(e.message));
     if (structural.length) throw Error(structural[0].message);
@@ -207,6 +232,7 @@
       if (n.type === "agent" && c.maxTokens != null && (!Number.isInteger(c.maxTokens) || c.maxTokens < 1 || c.maxTokens > 4096)) error("Use an output budget of 1–4096 tokens.", n.id);
       if (n.type === "agent" && c.maxContinuations != null && (!Number.isInteger(c.maxContinuations) || c.maxContinuations < 0 || c.maxContinuations > 16)) error("Use 0–16 continuations.", n.id);
       if (n.type === "agent" && c.outputFormat !== undefined && !["text", "json"].includes(c.outputFormat)) error("Choose Text or JSON output.", n.id);
+      if (n.type === "agent" && c.timeoutSeconds != null && (!Number.isInteger(c.timeoutSeconds) || c.timeoutSeconds < 5 || c.timeoutSeconds > 600)) error("Use a model reply timeout of 5–600 seconds.", n.id);
       if (n.type === "agent" && c.maxFormatRepairs != null && (!Number.isInteger(c.maxFormatRepairs) || c.maxFormatRepairs < 0 || c.maxFormatRepairs > 2)) error("Use 0–2 JSON repairs.", n.id);
       if (n.type === "agent" && c.outputFormat === "json") { try { Output.checkSchema(c.outputSchema ?? {}, true); } catch (e) { error(e.message, n.id); } }
       if (n.type === "code" && c.language !== "javascript") error("KAI Code nodes use isolated JavaScript; translate this script before enabling it.", n.id);
@@ -233,5 +259,5 @@
     return { name, model, fallbackModels: [], enabled: false, description: "", graph: { version: 2, nodes, edges } };
   }
   const templates = [["briefing", "Project briefing", "Search your Brain and prepare a useful briefing."], ["review", "Weekly goal review", "Review context and remember approved next steps."], ["digest", "Daily digest to an app", "Summarize context on a schedule and send it to a connection."], ["scrape", "Scheduled source to Brain", "Read a source, summarize it, and remember the reviewed result."], ["event", "App change to conditional action", "Watch a read action, triage changes, and follow a branch."], ["api", "Fetch and parse an API", "Read structured data and use it in later steps."], ["ask", "Ask KAI", "A simple manual prompt with a saved result."], ["research", "Plan and write a research brief", "Use separate agents and models to plan and draft."], ["loop", "Review and refine", "Improve a draft through a bounded feedback loop."]];
-  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, modelChoice, modelChoices, modelId, localReady, migrateModels, migrateOutputs };
+  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, modelChoice, modelChoices, modelId, localReady, migrateModels, migrateOutputs, migrateReliability, canRetryRun };
 });

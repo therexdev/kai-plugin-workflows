@@ -1,0 +1,13 @@
+{
+  "verdict": "PASS",
+  "items": [
+    {
+      "id": "I1",
+      "severity": "warning",
+      "location": "Paragraph 1",
+      "evidence": "These directories list attorneys who meet specific eligibility requirements, ensuring they are in good standing with the Illinois Bar and have no pending formal complaints with the Illinois Supreme Court's Attorney Registration and Disciplinary Commission [S1-3].",
+      "fix": "Specify eligibility requirements."
+    }
+  ],
+  "summary": "Online directories (ISBA, CBA) are reliable for initial DUI attorney searches [S1-3]. Check profiles for specialization and credentials."
+}

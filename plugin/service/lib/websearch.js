@@ -479,7 +479,10 @@ async function fetchPage(url, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS,
     .replace(/<header[\s\S]*?<\/header>/gi, " ")
     .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
     .replace(/<aside[\s\S]*?<\/aside>/gi, " ");
-  const text = stripTags(html).slice(0, maxChars);
+  // Retain paragraph boundaries so callers can select a relevant passage
+  // without joining an exception or condition to an unrelated paragraph.
+  const text = html.split(/<\/(?:p|li|h[1-6]|div|section)>|<br\s*\/?>/i)
+    .map(stripTags).filter(Boolean).join("\n\n").slice(0, maxChars);
   if (!text) throw new Error("no readable text");
   const probe = (title + " " + text.slice(0, 1600)).toLowerCase();
   if (text.length < 2500 && [

@@ -10,7 +10,7 @@
       document.querySelector('[data-wf=template][data-id=aio]').click();
       return {nodes:imported.graph.nodes.length,hasQuality:!!window.KaiWorkflowQuality,hasTemplate:!!document.querySelector('[data-wf=template][data-id=aio]')};
     })()`);
-    assert.equal(result.nodes,74);assert.equal(result.hasQuality,true);
+    assert.equal(result.nodes,85);assert.equal(result.hasQuality,true);
     await until(()=>appEval(id,'!!document.querySelector("[data-node=section_review_checks]")'),"AIO template did not open");
     await appEval(id,'document.querySelector("[data-node=section_review_checks]").click();true');
     const checkFields=await appEval(id,'({field:document.querySelector("[data-field=\\\"config.rules.2.sources\\\"]")?.value,onFailure:document.querySelector("[data-field=\\\"config.onFailure\\\"]")?.value})');

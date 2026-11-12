@@ -449,7 +449,8 @@
     "Model reply timeout (5–600 seconds)": "Tiempo de espera de respuesta del modelo (5–600 segundos)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Cada respuesta de la red tiene su propio tiempo límite. Las continuaciones pueden durar hasta 15 minutos en total. Las partes completadas se guardan en Resultados del modelo.",
     "JSON punctuation repaired locally; no extra model call.": "Puntuación JSON corregida localmente; sin otra llamada al modelo.",
-    "Used saved model output; no new model call.": "Se usó la respuesta guardada del modelo; sin otra llamada."
+    "Used saved model output; no new model call.": "Se usó la respuesta guardada del modelo; sin otra llamada.",
+    "Verified partial network reply saved.": "Respuesta parcial de la red verificada y guardada."
   },
   "pt-BR": {
     ", and": ", e",
@@ -901,7 +902,8 @@
     "Model reply timeout (5–600 seconds)": "Tempo limite de resposta do modelo (5–600 segundos)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Cada resposta da rede tem seu próprio tempo limite. As continuações podem durar até 15 minutos no total. As partes concluídas são salvas em Resultados do modelo.",
     "JSON punctuation repaired locally; no extra model call.": "Pontuação JSON corrigida localmente; sem outra chamada ao modelo.",
-    "Used saved model output; no new model call.": "Resposta salva do modelo utilizada; sem nova chamada."
+    "Used saved model output; no new model call.": "Resposta salva do modelo utilizada; sem nova chamada.",
+    "Verified partial network reply saved.": "Resposta parcial da rede verificada e salva."
   },
   "fr": {
     ", and": ", et",
@@ -1353,7 +1355,8 @@
     "Model reply timeout (5–600 seconds)": "Délai de réponse du modèle (5–600 secondes)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Chaque réponse du réseau a son propre délai. Les continuations peuvent durer jusqu’à 15 minutes au total. Les parties terminées sont enregistrées dans les résultats du modèle.",
     "JSON punctuation repaired locally; no extra model call.": "Ponctuation JSON corrigée localement ; aucun appel supplémentaire au modèle.",
-    "Used saved model output; no new model call.": "Réponse enregistrée du modèle réutilisée ; aucun nouvel appel."
+    "Used saved model output; no new model call.": "Réponse enregistrée du modèle réutilisée ; aucun nouvel appel.",
+    "Verified partial network reply saved.": "Réponse partielle du réseau vérifiée et enregistrée."
   },
   "de": {
     ", and": "und",
@@ -1805,6 +1808,7 @@
     "Model reply timeout (5–600 seconds)": "Zeitlimit für Modellantworten (5–600 Sekunden)",
     "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Jede Netzwerkantwort hat ein eigenes Zeitlimit. Fortsetzungen können insgesamt bis zu 15 Minuten dauern. Abgeschlossene Teile werden in den Modellergebnissen gespeichert.",
     "JSON punctuation repaired locally; no extra model call.": "JSON-Zeichensetzung lokal korrigiert; kein zusätzlicher Modellaufruf.",
-    "Used saved model output; no new model call.": "Gespeicherte Modellausgabe verwendet; kein neuer Modellaufruf."
+    "Used saved model output; no new model call.": "Gespeicherte Modellausgabe verwendet; kein neuer Modellaufruf.",
+    "Verified partial network reply saved.": "Verifizierte Teilantwort aus dem Netzwerk gespeichert."
   }
 }

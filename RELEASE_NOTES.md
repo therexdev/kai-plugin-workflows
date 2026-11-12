@@ -1,3 +1,9 @@
+# Workflows 0.3.16
+
+Network Agent steps now receive verified stream results through the existing Core SDK. When a provider job ends with a charged, signed partial reply, Workflows saves that original reply and receipt, then continues the text through the next configured model/location where available. If no fallback is available it can continue on the original allowed route. Continuation requests use smaller output chunks after a cutoff, preserve the step input, and remain within its total token, continuation, time and credit-approval limits. The graph advances only after the output is complete; JSON must pass the full configured schema.
+
+Fixes the reported `The network response ended before the provider finished` failure. An eligible Retry failed work can retrieve the same terminal prefix retained by Core from an older Workflows version instead of requesting the original outline again. New continuation work can use credits. Unknown transport outcomes, still-running provider work, invalid signatures and failed saves do not authorize replacements. Verified partial replies are labeled in Model results. Requires Core 0.7.28+; no newer Core or workflow reimport is required.
+
 # Workflows 0.3.15
 
 Fixes the reported complete five-section outline that failed three times because its final `points` array omitted a closing `]`. JSON Agents now attempt a bounded local punctuation correction before asking the model to regenerate. It inserts missing container closers only where an existing outer closer identifies the boundary, then parses and validates the full configured schema. It does not invent sections, values or string endings, complete a truncated tail, or repair tool arguments. Original model responses and paid receipts remain unchanged in Model results; successful corrections are labeled. Existing token, continuation and model-repair limits remain in effect.

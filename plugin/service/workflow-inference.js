@@ -68,17 +68,22 @@ function createInference(api, recordResult) {
       const contract = "The final answer must be one complete JSON value. If asked to continue, output only its missing suffix; do not restart. No Markdown fences or prose outside JSON. Keep strings concise. The assembled answer must match this JSON schema: " + JSON.stringify(schema) + (options.allowToolCall ? " A selected read-tool request may instead use the documented tool object." : "");
       initial = initial[0]?.role === "system" ? [{ ...initial[0], content: initial[0].content + "\n" + contract }, ...initial.slice(1)] : [{ role: "system", content: contract }, ...initial];
     }
-    let messages = initial, answer = "", cursor = 0, repairs = 0, purpose = "generate";
+    let messages = initial, answer = "", cursor = 0, repairs = 0, purpose = "generate", rotate = false, partLimit = Infinity;
     const budget = Math.max(1, Math.min(4096, Number(options.maxTokens) || 1200)), continuations = Math.max(0, Math.min(16, Number(options.maxContinuations ?? (json ? 4 : 0)) || 0));
     const repairLimit = Math.max(0, Math.min(2, Number(options.maxFormatRepairs ?? 2) || 0));
     let remaining = budget;
     for (let part = 0; part <= continuations; part++) {
-      const { result, chosen, index, request } = await runOrdered(options, messages, remaining, cursor, signal);
+      const { result, chosen, index, request } = await runOrdered(options, messages, remaining, cursor, signal, { rotate, partLimit });
       cursor = index; // Keep a working model/location for subsequent continuations.
+      rotate = false;
       const completion = result?.completion || result;
       active(api, signal);
       const choice = completion?.choices?.[0], chunk = choice?.message?.content;
       if (typeof chunk !== "string") throw new CompanionError(result?.message || "The model returned no text.");
+      // Core verifies the receipt. A signed stream prefix is still unfinished
+      // even when the service closes the job and labels its last frame "stop".
+      const interrupted = chosen.source === "network" && (completion.koin?.state === "streaming" || completion.koin?.receipt?.sequence !== undefined);
+      const terminal = !interrupted || completion.koin.state === "charged";
       answer += chunk;
       let checked;
       if (json) {
@@ -93,7 +98,8 @@ function createInference(api, recordResult) {
       // Save every accepted part before acknowledging a paid network delivery.
       await recordResult({ model: chosen.alias, source: chosen.source, requestedModel: options.model, modelSource: options.modelSource,
         modelPreference: options.modelPreference, fallbackModels: options.fallbackModels, part, purpose, completion, at: Date.now(),
-        stepKey: options.stepKey, attemptStartedAt: options.attemptStartedAt, ...(checked?.recovery ? { outputRecovery: checked.recovery } : {}) }, options.runId);
+        stepKey: options.stepKey, attemptStartedAt: options.attemptStartedAt, ...(interrupted ? { interrupted: true, terminal } : {}), ...(checked?.recovery ? { outputRecovery: checked.recovery } : {}) }, options.runId);
+      if (!terminal) throw new CompanionError("The provider is still completing the saved network request. Its verified partial reply is saved in Model results. Retry failed work after the request finishes; no replacement request was started.");
       if (chosen.source === "network" && typeof completion.id === "string" && /^[a-f0-9]{64}$/.test(completion.id)) {
         try { await api.wallet.authorize("chat-ack", completion.id, signal); }
         catch { /* Core retains its recoverable answer; this plugin already saved it. */ }
@@ -101,8 +107,16 @@ function createInference(api, recordResult) {
       active(api, signal);
       if (json) {
         if (checked.valid) return checked.text;
-      } else if (choice.finish_reason !== "length") return answer;
+      } else if (!interrupted && choice.finish_reason !== "length") return answer;
       remaining -= Number.isInteger(completion.usage?.completion_tokens) && completion.usage.completion_tokens > 0 ? completion.usage.completion_tokens : request.max_tokens;
+      if (interrupted) {
+        // This job is already terminal and its receipt is saved. Continuing
+        // its text is a NEW bounded request through the normal consent API.
+        // Prefer the next configured route, then the original if no fallback
+        // is available. Smaller parts reduce repeated provider deadline hits.
+        cursor = (index + 1) % Model.modelOrder(options).length; rotate = true;
+        partLimit = Math.min(partLimit, Math.max(Math.min(64, request.max_tokens), Math.floor(request.max_tokens / 2)));
+      }
       const savedNotice = " Partial text is saved in Model results. Review this step's output settings." + (options.runId ? " Use Retry failed work to keep completed steps." : " Adjust the relevant limit or shorten the task before trying again.");
       if (json) {
         const issue = "The model did not return JSON matching the required output. " + checked.error;
@@ -125,10 +139,12 @@ function createInference(api, recordResult) {
       messages = [...initial, { role: "assistant", content: answer }, { role: "user", content: "Continue exactly where the previous response stopped. Output only its remaining text, preserving JSON or Markdown syntax and the original requested length. Do not repeat any previous text, restart, or add a code fence." }];
     }
   }
-  async function runOrdered(options, messages, remaining, cursor, signal) {
+  async function runOrdered(options, messages, remaining, cursor, signal, { rotate = false, partLimit = Infinity } = {}) {
     const order = Model.modelOrder(options);
+    const indices = order.map((_, index) => index).slice(cursor);
+    if (rotate) indices.push(...order.map((_, index) => index).slice(0, cursor));
     let failure, unavailableMessage = "";
-    for (let index = cursor; index < order.length; index++) {
+    for (const index of indices) {
       const model = order[index];
       active(api, signal);
       if (!networkModel(model)) {
@@ -150,7 +166,10 @@ function createInference(api, recordResult) {
         if (!chosen) { unavailableMessage = error; break; }
         if (!await canRun(options.runId, options.workflowName)) throw new CompanionError("Open Workflows to review this KAI network request.");
         if (Buffer.byteLength(JSON.stringify(messages)) > 24000) throw new CompanionError("This network step exceeds the 24 KB message limit. Shorten its input or use a local model.");
-        const request = { model, messages, max_tokens: Math.min(remaining, Number.isInteger(chosen.maxOutput) && chosen.maxOutput > 0 ? chosen.maxOutput : 1200), stream: false };
+        // The public credits API can return a verified terminal prefix with
+        // stream:true. We collect it internally; graph nodes still receive one
+        // validated final result, never a partially finished step.
+        const request = { model, messages, max_tokens: Math.min(remaining, partLimit, Number.isInteger(chosen.maxOutput) && chosen.maxOutput > 0 ? chosen.maxOutput : 1200), stream: true };
         try {
           const seconds = Math.max(5, Math.min(600, Number(options.timeoutSeconds) || 600));
           const result = await withDeadline(signal, seconds * 1000,

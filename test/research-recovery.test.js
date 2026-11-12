@@ -132,3 +132,35 @@ test("retry keeps completed per-item answers and does not replay a preceding ext
   assert.equal(writes, 1); assert.deepEqual(calls, ["1", "2", "2", "3"]);
   assert.deepEqual(completed.output.map(v => v.text), ["Answer 1", "Answer 2", "Answer 3"]);
 });
+test("empty question results fall back to topic terms without replacing the original query",async()=>{
+ const queries=[];
+ const result=await research("How does AI work?",{topic:"How does AI work?",privacyMode:()=>"network",lookup:async()=>[{address:"8.8.8.8",family:4}],fetchImpl:async url=>{
+  const u=new URL(url),q=u.searchParams.get("q")||u.searchParams.get("search");if(q)queries.push(q);
+  if(url.includes("bing.com")&&q==="ai")return new Response('<rss><channel><item><title>AI training explained</title><link>https://evidence.example/ai</link><description>AI training evidence</description></item></channel></rss>');
+  if(url.includes("wikipedia.org"))return Response.json([q,[],[],[]]);
+  if(url.includes("evidence.example"))return new Response('<html><title>AI training</title><p>AI learns from examples. '+"AI training uses data. ".repeat(50)+"</p></html>",{headers:{"content-type":"text/html"}});
+  return new Response("<html></html>");
+ }});
+ assert.equal(queries[0],"How does AI work?");assert.equal(result.searches.at(-1).query,"ai");assert.equal(result.sources[0].read,true);
+});
+test("provided reference pages use normal public-target and topic checks before becoming evidence",async()=>{
+ const seen=[];
+ const result=await research("AI training",{topic:"AI training",sourceUrls:["http://127.0.0.1/private","https://evidence.example/ai"],maxPages:1,privacyMode:()=>"network",lookup:async()=>[{address:"8.8.8.8",family:4}],fetchImpl:async url=>{seen.push(url);return new Response('<html><title>AI training</title><p>'+"AI training uses data and examples. ".repeat(50)+"</p></html>",{headers:{"content-type":"text/html"}});}});
+ assert.deepEqual(seen,["https://evidence.example/ai"]);assert.equal(result.provider,"provided");assert.equal(result.sources[0].provided,true);assert.equal(result.sources[0].read,true);
+});
+
+test("research retains verified evidence when a different page exhausts the time budget",async()=>{
+ const result=await research("AI training",{topic:"AI training",timeoutMs:100,maxPages:3,privacyMode:()=>"network",lookup,fetchImpl:async(url,{signal}={})=>{
+  if(url.includes("duckduckgo.com"))return new Response('<a class="result__a" href="https://evidence.example/fast">AI training</a><a class="result__a" href="https://evidence.example/slow">AI training delays</a>');
+  if(url.endsWith("/fast"))return page("AI training uses data");
+  return new Promise((resolve,reject)=>{const timer=setTimeout(()=>resolve(page("AI training late")),1000);signal.addEventListener("abort",()=>{clearTimeout(timer);reject(signal.reason);},{once:true});});
+ }});
+ assert.equal(result.sources.filter(s=>s.read).length,1);assert.equal(result.sources[0].url,"https://evidence.example/fast");assert.match(result.note,/time limit/);
+});
+
+test("research deadline without evidence is specific and cancellation never releases partial results",async()=>{
+ const options={topic:"AI training",timeoutMs:60,privacyMode:()=>"network",lookup,fetchImpl:async(_url,{signal})=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>resolve(new Response("")),1000);signal.addEventListener("abort",()=>{clearTimeout(timer);reject(signal.reason);},{once:true});})};
+ await assert.rejects(research("AI training",options),/Web research reached its time limit/);
+ const stop=new AbortController();stop.abort(new Error("User cancelled"));
+ await assert.rejects(research("AI training",{...options,signal:stop.signal}),/User cancelled/);
+});

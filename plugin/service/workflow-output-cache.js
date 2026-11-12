@@ -9,6 +9,10 @@ function recoverSavedJSON(run, token, schema) {
   if (!run.retryHistory?.length) return null;
   const failed = [...run.steps].reverse().find(s => s.token === token && s.status === "failed");
   if (!failed || !/^The model did not return JSON matching the required output\./.test(failed.error || "") || !Number.isFinite(failed.at) || !Number.isFinite(failed.finishedAt)) return null;
+  const current = [...run.steps].reverse().find(s => s.token === token && s.status === "running");
+  // Retried research may change source IDs or page text. A paid answer to the
+  // old evidence is reusable only when this attempt has the same input.
+  if (!Array.isArray(failed.input) || !Array.isArray(current?.input) || !require("node:util").isDeepStrictEqual(failed.input, current.input)) return null;
   try { Output.checkSchema(schema); } catch { return null; }
   const overlapping = run.steps.some(s => s !== failed && s.type === "agent" && s.at < failed.finishedAt && (s.finishedAt ?? Infinity) > failed.at);
   let answer = "", parts = [], started = false, recovered = null;
@@ -20,7 +24,7 @@ function recoverSavedJSON(run, token, schema) {
     if (typeof text !== "string" || text.length > 200000) return null;
     if (call.purpose === "generate" || call.purpose === "repair") { answer = ""; parts = []; started = true; }
     else if (call.purpose !== "continue" || !started) continue;
-    answer += text; parts.push(index); if (answer.length > 200000) return null;
+    answer += call.purpose === "continue" ? Output.continuationText(text) : text; parts.push(index); if (answer.length > 200000) return null;
     let checked = Output.inspect(answer, schema);
     if (!checked.valid && call.purpose === "continue") { const replacement = Output.inspect(text, schema); if (replacement.valid) { checked = replacement; parts = [index]; } }
     if (checked.valid) recovered = { text: checked.text, detail: { source: "saved-model-results", callIndices: [...parts], previousAttemptAt: failed.at, ...(checked.recovery ? { outputRecovery: checked.recovery } : {}) } };

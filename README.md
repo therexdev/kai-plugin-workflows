@@ -77,3 +77,7 @@ On **Retry failed work**, a JSON Agent without selected tools can reuse its save
 ### Interrupted network output
 
 Network Agents save verified partial replies from terminal provider jobs and continue within the step's existing limits. After an interrupted job, the next selected fallback route is preferred and the requested chunk size is reduced; if fallbacks are unavailable the original allowed route remains eligible. This uses the public Core credits API and normal workflow consent. A charged prefix is not treated as completed prose, and JSON still must satisfy the complete output contract. Unknown or still-running outcomes stop without starting replacement work. Model results retain the original receipt and identify partial replies. Core 0.7.28+ is supported.
+
+## Reusable quality checks and AIO articles
+
+Workflows 0.3.18 adds a configurable Quality Check node and verified-overlap text continuations. The new **AIO researched article** template keeps editorial policy in the workflow: research, outline review, per-section coaching/writing/revision, cited evidence, answer/FAQ/metadata/social outputs from reviewed section summaries, derived FAQ schema and a final review report. Unresolved drafts are labeled **Needs review**, not silently approved. Existing workflows are preserved; import the new template to use this pipeline. See [AIO setup and limits](docs/aio-article-workflow.md) and [reusable quality rules](docs/quality-checks.md).

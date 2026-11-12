@@ -1,7 +1,7 @@
 /* KAI's portable workflow document. Shared by the private runner and canvas. */
 (function (root, factory) {
-  const api = factory(typeof module === "object" && module.exports ? require("./workflow-output") : root.KaiWorkflowOutput); if (typeof module === "object" && module.exports) module.exports = api; else root.KaiWorkflowModel = api;
-})(typeof window === "object" ? window : globalThis, function (Output) {
+  const api = factory(typeof module === "object" && module.exports ? require("./workflow-output") : root.KaiWorkflowOutput, typeof module === "object" && module.exports ? require("./workflow-quality") : root.KaiWorkflowQuality); if (typeof module === "object" && module.exports) module.exports = api; else root.KaiWorkflowModel = api;
+})(typeof window === "object" ? window : globalThis, function (Output, Quality) {
   "use strict";
   const clone = x => JSON.parse(JSON.stringify(x));
 
@@ -123,15 +123,17 @@
     ["split_out", "Split out", "Logic", "Turn a list into individual items.", "⋮"],
     ["transform", "Transform", "Logic", "Map fields with expressions using upstream data.", "◇"],
     ["output_parser", "Output parser", "Logic", "Parse JSON, text, or CSV and validate required fields.", "≡"],
+    ["quality_check", "Quality Check", "Logic", "Check required fields, counts, citations and configured rules without a model call.", "✓"],
     ["dedup", "Deduplicate", "Logic", "Skip items already seen in this workflow.", "⊜"],
     ["loop", "Loop", "Logic", "Repeat a connected body a limited number of times.", "↻"],
     ["output", "Result", "Finish", "Keep a result in run history or a new conversation.", "▤"],
   ].map(([type, name, group, description, icon]) => ({ type, name, group, description, icon }));
   const types = catalog.map(x => x.type), meta = type => catalog.find(x => x.type === type);
   function defaults(type) {
+    if (type === "quality_check") return { value: "=item.text", rules: [{ type: "characters", min: 1, severity: "error" }], onFailure: "report", resultField: "quality" };
     return clone({ trigger: { kind: "manual", schedule: { kind: "daily", hour: 9, minute: 0, day: 1 }, inputFields: [] }, agent: { prompt: "Summarize this input and suggest next steps:\n{{previous}}", profile: "assistant", model: "", fallbackModels: [], execution: "once", maxTurns: 3, timeoutSeconds: 600, tools: [] }, tool_call: { connectionId: "", operationId: "", variables: {}, body: {}, execution: "per_item" }, http_request: { method: "GET", url: "https://api.example.com/data", headers: {}, body: {}, execution: "per_item" }, web_research: { query: "{{input}}", maxPages: 3, execution: "once" }, code: { language: "javascript", source: "return items;" }, sub_workflow: { workflowId: "", execution: "once" }, memory: { operation: "search", query: "{{input}}", limit: 8 }, approval: { text: "Review this result:\n{{previous}}" }, condition: { expression: "=Boolean(item.text)", operator: "truthy", value: "" }, switch: { expression: "=item.status", cases: ["ready", "pending"] }, merge: { mode: "append", key: "id" }, split_out: { field: "=item.json", keepFields: false }, transform: { set: { summary: "=item.text" }, keepFields: true }, output_parser: { format: "json", field: "=item.text", required: "" }, dedup: { key: "=item.id", scope: "workflow" }, loop: { maxIterations: 3, condition: "", onExceeded: "continue" }, output: { text: "{{previous}}", saveChat: false } }[type] || {});
   }
-  const node = (type, id, position, config = {}, label) => ({ id, type, label: label || meta(type)?.name || type, config: { ...defaults(type), ...config }, position: position || { x: 80, y: 80 } });
+  const node = (type, id, position, config = {}, label) => ({ id, type, label: label || meta(type)?.name || type, config: { ...defaults(type), ...(type === "agent" ? { continuationMode: "overlap" } : {}), ...config }, position: position || { x: 80, y: 80 } });
   const edge = (from, to, port = "main", input = "main") => ({ id: [from, port, to, input].join(":"), from, to, port, input });
   function ports(n) { return [...new Set(n.type === "condition" ? ["true", "false", "error"] : n.type === "switch" ? [...(n.config.cases || []).map(String), "default", "error"] : n.type === "loop" ? ["body", "done", "error"] : n.type === "approval" ? ["approved", "rejected", "error"] : ["main", "error"])]; }
   function fromLegacy(w) {
@@ -234,6 +236,12 @@
       if (n.type === "agent" && c.maxTokens != null && (!Number.isInteger(c.maxTokens) || c.maxTokens < 1 || c.maxTokens > 4096)) error("Use an output budget of 1–4096 tokens.", n.id);
       if (n.type === "agent" && c.maxContinuations != null && (!Number.isInteger(c.maxContinuations) || c.maxContinuations < 0 || c.maxContinuations > 16)) error("Use 0–16 continuations.", n.id);
       if (n.type === "agent" && c.outputFormat !== undefined && !["text", "json"].includes(c.outputFormat)) error("Choose Text or JSON output.", n.id);
+      if (n.type === "agent" && c.continuationMode !== undefined && !["exact", "overlap"].includes(c.continuationMode)) error("Choose exact or verified-overlap continuations.", n.id);
+      if (n.type === "quality_check") {
+        try { Quality.checkRules(c.rules, true); } catch (e) { error(e.message, n.id); }
+        if (!["report", "stop"].includes(c.onFailure)) error("Choose Report issues or Stop on errors.", n.id);
+        if (!/^[a-zA-Z][a-zA-Z0-9_]{0,39}$/.test(c.resultField || "") || ["constructor", "prototype", "__proto__"].includes(c.resultField)) error("Choose a valid quality result field.", n.id);
+      }
       if (n.type === "agent" && c.timeoutSeconds != null && (!Number.isInteger(c.timeoutSeconds) || c.timeoutSeconds < 5 || c.timeoutSeconds > 600)) error("Use a model reply timeout of 5–600 seconds.", n.id);
       if (n.type === "agent" && c.maxFormatRepairs != null && (!Number.isInteger(c.maxFormatRepairs) || c.maxFormatRepairs < 0 || c.maxFormatRepairs > 2)) error("Use 0–2 JSON repairs.", n.id);
       if (n.type === "agent" && c.outputFormat === "json") { try { Output.checkSchema(c.outputSchema ?? {}, true); } catch (e) { error(e.message, n.id); } }
@@ -247,6 +255,7 @@
     return { errors, warnings };
   }
   function template(key, model = "", connection) {
+    if (key === "aio") return importDocument(typeof module === "object" && module.exports ? require("./templates/aio-article.workflow.json") : globalThis.KaiWorkflowTemplates.aio);
     const trigger = node("trigger", "start", { x: 90, y: 60 }), nodes = [trigger], edges = [];
     const add = (type, config, label) => { const n = node(type, "n" + nodes.length, { x: 90, y: 60 + nodes.length * 155 }, config, label); edges.push(edge(nodes.at(-1).id, n.id, nodes.at(-1).type === "approval" ? "approved" : "main")); nodes.push(n); return n; };
     const ask = (prompt, label) => add("agent", { prompt }, label);
@@ -260,6 +269,6 @@
     if (!nodes.some(n => n.type === "output") && nodes.at(-1).type !== "memory") add("output", { text: "{{previous}}" }, "Keep the result");
     return { name, model, fallbackModels: [], enabled: false, description: "", graph: { version: 2, nodes, edges } };
   }
-  const templates = [["briefing", "Project briefing", "Search your Brain and prepare a useful briefing."], ["review", "Weekly goal review", "Review context and remember approved next steps."], ["digest", "Daily digest to an app", "Summarize context on a schedule and send it to a connection."], ["scrape", "Scheduled source to Brain", "Read a source, summarize it, and remember the reviewed result."], ["event", "App change to conditional action", "Watch a read action, triage changes, and follow a branch."], ["api", "Fetch and parse an API", "Read structured data and use it in later steps."], ["ask", "Ask KAI", "A simple manual prompt with a saved result."], ["research", "Plan and write a research brief", "Use separate agents and models to plan and draft."], ["loop", "Review and refine", "Improve a draft through a bounded feedback loop."]];
+  const templates = [["aio", "AIO researched article", "Research, plan, coach, draft, review and revise with evidence and bounded quality checks."], ["briefing", "Project briefing", "Search your Brain and prepare a useful briefing."], ["review", "Weekly goal review", "Review context and remember approved next steps."], ["digest", "Daily digest to an app", "Summarize context on a schedule and send it to a connection."], ["scrape", "Scheduled source to Brain", "Read a source, summarize it, and remember the reviewed result."], ["event", "App change to conditional action", "Watch a read action, triage changes, and follow a branch."], ["api", "Fetch and parse an API", "Read structured data and use it in later steps."], ["ask", "Ask KAI", "A simple manual prompt with a saved result."], ["research", "Plan and write a research brief", "Use separate agents and models to plan and draft."], ["loop", "Review and refine", "Improve a draft through a bounded feedback loop."]];
   return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, modelChoice, modelChoices, modelId, localReady, migrateModels, migrateOutputs, migrateReliability, canRetryRun };
 });

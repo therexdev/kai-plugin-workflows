@@ -30,6 +30,7 @@ test("an existing imported 180-second agent finishes continuations taking longer
   const f = setup(t), app = create(f.api); t.after(() => app.dispose());
   const spec = Model.template("ask", ALIAS), agent = spec.graph.nodes.find(n => n.type === "agent");
   Object.assign(agent.config, { timeoutSeconds: 180, maxTokens: 24, maxContinuations: 2 });
+  delete agent.config.continuationMode; // Imported pre-overlap definition; preserve its original append behavior.
   const saved = await app.call("workflows.workflow", spec), { id } = await app.call("workflows.run", { id: saved.id });
   await flush(); assert.equal(f.pending.length, 1);
   t.mock.timers.tick(130000); f.pending[0].resolve(reply("First ", "length")); await flush();

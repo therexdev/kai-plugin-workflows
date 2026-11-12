@@ -276,7 +276,7 @@ async function pageText(response) {
 /** DuckDuckGo HTML results — anchors carry a /l/?uddg=<encoded> redirect. */
 function parseDdgHtml(html) {
   const out = [];
-  const linkRe = /<a\b([^>]*\bclass=["'][^"']*\bresult__a\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi;
+  const linkRe = /<a\b([^>]*\bclass=["'][^"']*\b(?:result__a|result-link)\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi;
   const links = [...String(html).matchAll(linkRe)];
   for (let i = 0; i < links.length && out.length < MAX_RESULTS; i++) {
     const m = links[i], href = m[1].match(/\bhref=["']([^"']+)["']/i);
@@ -295,7 +295,7 @@ function parseDdgHtml(html) {
     // Keep each description with its own title, including when an ad/tracker
     // is skipped or a result has no snippet. Global indices shift those pairs.
     const segment = html.slice(m.index + m[0].length, links[i + 1]?.index ?? html.length);
-    const snippet = segment.match(/<(?:a|div|span)\b[^>]*\bclass=["'][^"']*\bresult__snippet\b[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|div|span)>/i);
+    const snippet = segment.match(/<(?:a|div|span|td)\b[^>]*\bclass=["'][^"']*\b(?:result__snippet|result-snippet)\b[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|div|span|td)>/i);
     out.push({ title: stripTags(m[2]).slice(0, 120), url: url.slice(0, 500), snippet: stripTags(snippet?.[1] || "").slice(0, 300) });
   }
   return out;
@@ -409,6 +409,16 @@ async function searchWeb(q, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS, d
   } catch {
     /* fall through to wikipedia */
   }
+  // Lightweight HTML is a separate public endpoint and can remain reachable
+  // when the main DuckDuckGo results endpoint times out or returns a challenge.
+  try {
+    const u = "https://lite.duckduckgo.com/lite/?q=" + encodeURIComponent(query);
+    const r = await fetchImpl(u, { signal: AbortSignal.timeout(timeoutMs), headers: BROWSER_HEADERS });
+    if (r.ok) {
+      const results = parseDdgHtml(await r.text()).filter(acceptResult);
+      if (results.length) return { results, source: "duckduckgo-lite" };
+    }
+  } catch { /* try the narrower index */ }
   // Fallback: Wikipedia opensearch (keyless, reliable JSON, narrower).
   try {
     const u =

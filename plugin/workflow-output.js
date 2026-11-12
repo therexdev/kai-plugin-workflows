@@ -67,6 +67,32 @@
     return object(a) && object(b) && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => Object.hasOwn(b, k) && equal(a[k], b[k]));
   }
   const unfence = text => text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  // Some providers wrap each continuation separately. Strip only standalone
+  // fence lines from that new fragment, never backticks inside JSON strings.
+  function continuationText(text) {
+    return text.replace(/^\s*```(?:json)?[ \t]*\r?\n/i, "").replace(/(?:^|\r?\n)[ \t]*```[ \t]*$/, "");
+  }
+  function removeSchemaEcho(raw, schema) {
+    if (!Object.keys(schema).length || raw.length > 200000 || raw[0] !== "{") return null;
+    let depth = 0, quoted = false, escaped = false;
+    for (let i = 0; i < raw.length; i++) {
+      const c = raw[i];
+      if (quoted) { if (escaped) escaped = false; else if (c === "\\") escaped = true; else if (c === '"') quoted = false; }
+      else if (c === '"') quoted = true;
+      else if (c === "{" || c === "[") { if (++depth > 64) return null; }
+      else if (c === "}" || c === "]") {
+        if (--depth === 0) {
+          try {
+            const first = JSON.parse(raw.slice(0, i + 1)), rest = raw.slice(i + 1).trim();
+            // Discard only an exact copy of the requested contract which is
+            // itself invalid as the answer. Multiple plausible answers stay ambiguous.
+            return rest && equal(first, schema) && validate(first, schema) ? rest : null;
+          } catch { return null; }
+        }
+      }
+    }
+    return null;
+  }
   // Insert only a missing container closer when a later, existing closer proves
   // where that container ends. Never complete EOF, strings, values or fields.
   // The repaired document must still parse and satisfy the entire schema.
@@ -93,7 +119,7 @@
     return !quoted && !stack.length && edits.length ? { text: output, edits } : null;
   }
   function inspect(text, schema = {}, allowToolCall = false) {
-    const raw = unfence(text);
+    const unfenced = unfence(text), afterEcho = removeSchemaEcho(unfenced, schema), raw = afterEcho ?? unfenced;
     let value, recovery;
     try { value = JSON.parse(raw); }
     catch {
@@ -110,6 +136,7 @@
       if (!recovery) return { valid: false, incomplete: unfinished(raw), error: "The response is not complete, valid JSON." };
     }
     const error = allowToolCall && object(value?.tool) ? "" : validate(value, schema);
+    if (!error && afterEcho !== null) recovery = { kind: "echoed-output-schema", ...(recovery ? { syntaxRecovery: recovery } : {}) };
     return { valid: !error, incomplete: false, error, value, text: JSON.stringify(value), ...(recovery ? { recovery } : {}) };
   }
   function unfinished(raw) {
@@ -123,5 +150,5 @@
     }
     return quoted || stack.length > 0;
   }
-  return { checkSchema, validate, inspect };
+  return { checkSchema, validate, inspect, continuationText };
 });

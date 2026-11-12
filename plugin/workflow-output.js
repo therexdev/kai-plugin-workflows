@@ -133,22 +133,67 @@
           }
         } catch { /* Continue or request a bounded model repair below. */ }
       }
-      if (!recovery) return { valid: false, incomplete: unfinished(raw), error: "The response is not complete, valid JSON." };
+      if (!recovery) {
+        const incomplete = unfinished(raw);
+        return { valid: false, incomplete, error: incomplete ? "The response is not complete, valid JSON." : "The response contains invalid JSON syntax; appending text cannot fix it." };
+      }
     }
     const error = allowToolCall && object(value?.tool) ? "" : validate(value, schema);
     if (!error && afterEcho !== null) recovery = { kind: "echoed-output-schema", ...(recovery ? { syntaxRecovery: recovery } : {}) };
     return { valid: !error, incomplete: false, error, value, text: JSON.stringify(value), ...(recovery ? { recovery } : {}) };
   }
   function unfinished(raw) {
-    if (!/^[{[\"]/.test(raw)) return false;
-    const stack = []; let quoted = false, escaped = false;
-    for (const c of raw) {
-      if (quoted) { if (escaped) escaped = false; else if (c === "\\") escaped = true; else if (c === '"') quoted = false; }
-      else if (c === '"') quoted = true;
-      else if (c === "{" || c === "[") stack.push(c);
-      else if (c === "}" || c === "]") { if (stack.pop() !== (c === "}" ? "{" : "[")) return false; }
+    // A continuation can only repair a grammatically valid prefix. Counting
+    // brackets mistakes missing quotes, invalid escapes and commas for EOF,
+    // repeatedly charging for suffixes that cannot repair an earlier error.
+    if (!raw || raw.length > 200000) return false;
+    const eof = {}, invalid = {}; let i = 0;
+    const space = () => { while (/[\t\n\r ]/.test(raw[i] || "\0")) i++; };
+    const need = () => { if (i === raw.length) throw eof; };
+    function string() {
+      i++;
+      for (;;) {
+        need(); const c = raw[i++];
+        if (c === '"') return;
+        if (c.charCodeAt(0) < 32) throw invalid;
+        if (c !== "\\") continue;
+        need(); const escape = raw[i++];
+        if (escape === "u") {
+          for (let n = 0; n < 4; n++) { need(); if (!/[0-9a-f]/i.test(raw[i++])) throw invalid; }
+        } else if (!'"\\/bfnrt'.includes(escape)) throw invalid;
+      }
     }
-    return quoted || stack.length > 0;
+    function value(depth) {
+      if (depth > 64) throw invalid;
+      space(); need(); const c = raw[i];
+      if (c === '"') { string(); return; }
+      if (c === "{" || c === "[") {
+        const map = c === "{", end = map ? "}" : "]"; i++; space(); need();
+        if (raw[i] === end) { i++; return; }
+        for (;;) {
+          if (map) { if (raw[i] !== '"') throw invalid; string(); space(); need(); if (raw[i++] !== ":") throw invalid; }
+          value(depth + 1); space(); need();
+          if (raw[i] === end) { i++; return; }
+          if (raw[i++] !== ",") throw invalid;
+          space(); need(); // A trailing comma followed by a closer is invalid.
+        }
+      }
+      const literal = { t: "true", f: "false", n: "null" }[c];
+      if (literal) { for (const letter of literal) { need(); if (raw[i++] !== letter) throw invalid; } return; }
+      if (c === "-") { i++; need(); }
+      if (raw[i] === "0") i++;
+      else {
+        if (!/[1-9]/.test(raw[i] || "")) throw invalid;
+        while (/[0-9]/.test(raw[i] || "")) i++;
+      }
+      if (raw[i] === ".") { i++; need(); if (!/[0-9]/.test(raw[i])) throw invalid; while (/[0-9]/.test(raw[i] || "")) i++; }
+      if (/[eE]/.test(raw[i] || "")) {
+        i++; need(); if (/[+-]/.test(raw[i])) { i++; need(); }
+        if (!/[0-9]/.test(raw[i])) throw invalid; while (/[0-9]/.test(raw[i] || "")) i++;
+      }
+    }
+    try { value(0); space(); return false; }
+    catch (error) { return error === eof; }
   }
   return { checkSchema, validate, inspect, continuationText };
 });

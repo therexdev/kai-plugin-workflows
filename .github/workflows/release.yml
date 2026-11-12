@@ -44,8 +44,40 @@ jobs:
       - name: Verify release signature and exact source contents
         if: steps.package.outputs.release_ready == 'true'
         run: node scripts/verify-package.js
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kai-plugin-workflows
+      - uses: actions/checkout@v4
+        with:
+          repository: therexdev/kai-core
+          ref: 217f80069a97482aad7acd3dea2a611e160df1bb
+          path: kai-core
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install pinned test dependencies
+        run: |
+          npm ci --ignore-scripts --prefix kai-core
+          node kai-core/node_modules/electron/install.js
+          sudo chown root:root kai-core/node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 kai-core/node_modules/electron/dist/chrome-sandbox
+      - name: Exercise Workflows through real Core with a synthetic profile
+        env:
+          KAI_FOUNDATION_SMOKE_IDS: kai.workflows
+          KAI_FOUNDATION_APPS_OUTPUT: ${{ runner.temp }}/workflows-native-results
+        run: xvfb-run -a node kai-plugin-workflows/scripts/native-smoke.js --synthetic-keychain
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workflows-native-results
+          path: ${{ runner.temp }}/workflows-native-results
+          if-no-files-found: warn
   release:
-    needs: verify
+    needs: [verify, native]
     if: github.ref == 'refs/heads/main' && needs.verify.outputs.release_ready == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -67,7 +67,7 @@ test("outline and extras revisions regenerate small parts and recheck their asse
   f.api.network.models=async()=>[{model:'gemma3-12b',available:true,maxOutput:256}];
   f.api.wallet={authorize:async()=>{},complete:async request=>{
    const p=request.messages[1].content;assert.doesNotMatch(p,/\{\{(?:item|nodes)\b/);const stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);
-   let value;if(stage.endsWith('_REVISE')){const task=JSON.parse(p.match(/Task: (.+)/)[1]);assert(task.count<=11);const lines=task.existing.slice();if(task.key==='meta'){lines[0]='A clear evidence-based article title';if(kind==='outline')for(let i=2;i<lines.length;i++)lines[i]='Section '+(i-2);}value={lines};}else value={verdict:'PASS',items:[]};
+   let value;if(stage.endsWith('_REVISE')){const task=JSON.parse(p.match(/Task: (.+)/)[1]);assert(task.count<=11);const lines=task.existing.length?task.existing.slice():['Fresh requirement for '+task.heading,'Use supporting evidence'];if(kind==='outline'&&task.key==='section'&&task.index===1){assert.equal(task.heading,'Section 1');assert.deepEqual(task.existing,[]);assert.match(task.instruction,/heading changed/);}if(task.key==='meta'){lines[0]='A clear evidence-based article title';if(kind==='outline')for(let i=2;i<lines.length;i++)lines[i]='Section '+(i-2);}value={lines};}else value={verdict:'PASS',items:[]};
    return {choices:[{message:{content:JSON.stringify(value)},finish_reason:'stop'}],usage:{completion_tokens:150},koin:{state:'charged'}};
   }};
   const inference=createInference(f.api,async()=>{}),engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[],runLocal:o=>inference.run(o),canReviewNetwork:()=>true,privacyMode:()=>"network"});

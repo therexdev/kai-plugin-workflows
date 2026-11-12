@@ -2,6 +2,7 @@
 
 - Stop continuing JSON whose existing prefix is already invalid. Preserve raw replies and use bounded repair/fallback instead; detect repeated unfinished fragments.
 - Build and revise the AIO outline and publishing extras in small independently validated parts, suitable for providers with short reply limits.
+- Plan all headings together using source excerpts; regenerate requirements when a heading changes, and require reviews to verify historical findings against the current draft.
 - Support bounded workflows up to 96 nodes (the 150 KB graph and 160 connection limits remain).
 - Regression tests replay the failed Chicago DUI outline replies and exercise a complete 2,000-word graph with section and citation checks.
 

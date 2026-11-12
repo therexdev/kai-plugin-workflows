@@ -1,0 +1,20 @@
+  await check("Agent JSON contract survives native builder save and import/export",async()=>{
+   const id="kai.workflows", schema={type:"object",required:["title","sections"],properties:{title:{type:"string"},sections:{type:"array",minItems:5,maxItems:5,items:{type:"object"}}}};
+   await appEval(id,'document.querySelector("[data-wf=inspector][data-id=node]")?.click();document.querySelector("[data-node=agent]").click();true');
+   const choose=async(field,value)=>appEval(id,`(()=>{const e=document.querySelector('[data-field="${field}"]');if(!e)throw Error('Missing field ${field}');e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+   await choose("config.outputFormat","json");
+   assert.ok(await appEval(id,'!!document.querySelector("[data-field=\\\"config.outputSchema\\\"]")'));
+   await choose("config.outputSchema",JSON.stringify(schema,null,2));
+   await choose("config.maxFormatRepairs","1");
+   await appEval(id,'document.querySelector("[data-wf=save]").click();true');
+   await until(()=>appEval(id,'document.querySelector(".wf-notice")?.textContent.includes("Workflow saved")'),"Native JSON save did not finish");
+   const state=await appEval(id,'window.kai.call("workflows.status",{})');
+   const workflow=state.workflows.find(w=>w.name==="Native model locations");assert.ok(workflow);
+   const config=workflow.graph.nodes.find(n=>n.id==="agent").config;
+   assert.equal(config.outputFormat,"json");assert.equal(config.maxFormatRepairs,1);assert.deepEqual(config.outputSchema,schema);
+   const exported=await appEval(id,`window.kai.call("workflows.export",{id:"${workflow.id}"})`);
+   const imported=await appEval(id,`window.kai.call("workflows.importWorkflow",{text:${JSON.stringify(JSON.stringify(exported))}})`);
+   assert.deepEqual(imported.graph.nodes.find(n=>n.id==="agent").config.outputSchema,schema);
+   await appEval(id,'document.querySelector("[data-field=\\\"config.outputSchema\\\"]").scrollIntoView({block:"center"});true');
+   const file=path.join(output,"workflow-json-output.png");await application.evaluate((_electron,{id,file})=>global.__foundationCapture(file,id),{id,file});report.screenshots.push(file);
+  });

@@ -22,7 +22,7 @@ function plan(graph) {
 }
 function normalize(input, draft = false) {
   const policy = Model.modelPolicy(input);
-  const graph = copy(input.graph), report = Model.validateGraph(graph);
+  const graph = copy(input.graph); Model.migrateOutputs({ graph }); const report = Model.validateGraph(graph);
   const errors = draft ? report.errors.filter(e => /unique letter|Unsupported node|must be an object|1–60|Add a workflow graph/.test(e.message)) : report.errors;
   if (errors.length) throw new CompanionError(errors.map(e => e.message).slice(0, 4).join(" "));
   if (JSON.stringify(graph).length > 150000) throw new CompanionError("Workflow exceeds 150 KB.");
@@ -226,10 +226,12 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     if (n.type === "agent") {
       const policy = Model.modelPolicy(c.model ? c : this.get(key).frames[frameId]);
       const max = Math.max(1, Math.min(6, Number(c.maxTurns) || 3)), tools = (c.tools || []).slice(0, 8);
+      const outputSchema = c.outputFormat === "json" ? await resolve(c.outputSchema ?? {}) : undefined;
       let turns = state().turns || [], answer;
       for (let turn = turns.length; turn < max; turn++) {
         const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`.slice(0, 16000);
         answer = await this.runLocal({ ...policy, prompt, runId: key, workflowName: this.get(key).name, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations,
+          outputFormat: c.outputFormat, outputSchema, maxFormatRepairs: c.maxFormatRepairs, allowToolCall: tools.length > 0,
           timeoutSeconds: c.timeoutSeconds, signal });
         let call; try { call = JSON.parse(answer).tool; } catch { /* final prose */ }
         if (!call) return main(V.envelope(answer));

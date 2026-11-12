@@ -1,7 +1,7 @@
 /* KAI's portable workflow document. Shared by the private runner and canvas. */
 (function (root, factory) {
-  const api = factory(); if (typeof module === "object" && module.exports) module.exports = api; else root.KaiWorkflowModel = api;
-})(typeof window === "object" ? window : globalThis, function () {
+  const api = factory(typeof module === "object" && module.exports ? require("./workflow-output") : root.KaiWorkflowOutput); if (typeof module === "object" && module.exports) module.exports = api; else root.KaiWorkflowModel = api;
+})(typeof window === "object" ? window : globalThis, function (Output) {
   "use strict";
   const clone = x => JSON.parse(JSON.stringify(x));
 
@@ -63,6 +63,23 @@
       if (Object.keys(policy).some(key => JSON.stringify(value[key]) !== JSON.stringify(policy[key]))) { Object.assign(value, policy); changed = true; }
     }
     return changed;
+  }
+  function migrateOutputs(workflow) {
+    // Upgrade the previously shipped article contract, not arbitrary prompts.
+    // Model choices, instructions, code, budgets and historical runs stay intact.
+    const nodes = workflow.graph?.nodes || [];
+    const plan = nodes.find(n => n.type === "code" && n.id === "plan" && n.config?.source?.includes('Outline was not valid JSON; inspect the saved outline response.') && n.config.source.includes("nodes.brief"));
+    if (!plan) return false;
+    const outline = nodes.find(n => n.type === "agent" && n.id === "outline_agent" && n.config?.outputFormat === undefined && n.config.prompt?.startsWith('STAGE: OUTLINE\nReturn ONLY valid JSON with this shape: {"title":"Article title","sections":[{"heading":"Heading","points":["Required point","Required point"]}]}.') && n.config.prompt.includes("Create exactly {{nodes.brief.section_count}} sections in order."));
+    if (!outline || !workflow.graph.edges.some(e => e.from === outline.id && e.to === plan.id)) return false;
+    Object.assign(outline.config, { outputFormat: "json", outputSchema: {
+      type: "object", required: ["title", "sections"], properties: {
+        title: { type: "string", minLength: 1 }, sections: { type: "array", minItems: "=nodes.brief.section_count", maxItems: "=nodes.brief.section_count", items: {
+          type: "object", required: ["heading", "points"], properties: { heading: { type: "string", minLength: 1 }, points: { type: "array", minItems: 2, maxItems: 2, items: { type: "string", minLength: 1 } } }
+        } }
+      }
+    } });
+    return true;
   }
   const catalog = [
     ["trigger", "Trigger", "Start", "Start manually, on a schedule, or when a source changes.", "⚡"],
@@ -150,6 +167,7 @@
     }
     if (g.edges.some(e => typeof e.from !== "string" || typeof e.to !== "string" || (e.port !== undefined && typeof e.port !== "string") || (e.input !== undefined && typeof e.input !== "string"))) throw Error("Connections need source and destination node IDs.");
     const graph = { version: 2, nodes: g.nodes, edges: g.edges.map(e => edge(e.from, e.to, e.port || "main", e.input || "main")) };
+    migrateOutputs({ graph });
     const report = validateGraph(graph);
     const structural = report.errors.filter(e => /unique letter|missing node|Unknown output port|duplicate connection|incoming connections|exactly one trigger|Close cycles/.test(e.message));
     if (structural.length) throw Error(structural[0].message);
@@ -188,6 +206,9 @@
       if (n.type === "web_research" && (!Number.isInteger(c.maxPages) || c.maxPages < 1 || c.maxPages > 5)) error("Use 1–5 source pages.", n.id);
       if (n.type === "agent" && c.maxTokens != null && (!Number.isInteger(c.maxTokens) || c.maxTokens < 1 || c.maxTokens > 4096)) error("Use an output budget of 1–4096 tokens.", n.id);
       if (n.type === "agent" && c.maxContinuations != null && (!Number.isInteger(c.maxContinuations) || c.maxContinuations < 0 || c.maxContinuations > 16)) error("Use 0–16 continuations.", n.id);
+      if (n.type === "agent" && c.outputFormat !== undefined && !["text", "json"].includes(c.outputFormat)) error("Choose Text or JSON output.", n.id);
+      if (n.type === "agent" && c.maxFormatRepairs != null && (!Number.isInteger(c.maxFormatRepairs) || c.maxFormatRepairs < 0 || c.maxFormatRepairs > 2)) error("Use 0–2 JSON repairs.", n.id);
+      if (n.type === "agent" && c.outputFormat === "json") { try { Output.checkSchema(c.outputSchema ?? {}, true); } catch (e) { error(e.message, n.id); } }
       if (n.type === "code" && c.language !== "javascript") error("KAI Code nodes use isolated JavaScript; translate this script before enabling it.", n.id);
       if (n.type === "trigger" && !["manual", "schedule", "app_change", "source_change", "app_event"].includes(c.kind)) error("Choose a supported trigger. Raw webhook listeners are not enabled.", n.id);
       if (n.type === "trigger" && ["app_change", "source_change"].includes(c.kind) && !(c.sourceId || c.connectionId && c.operationId)) error("Select the source or read action to watch.", n.id);
@@ -212,5 +233,5 @@
     return { name, model, fallbackModels: [], enabled: false, description: "", graph: { version: 2, nodes, edges } };
   }
   const templates = [["briefing", "Project briefing", "Search your Brain and prepare a useful briefing."], ["review", "Weekly goal review", "Review context and remember approved next steps."], ["digest", "Daily digest to an app", "Summarize context on a schedule and send it to a connection."], ["scrape", "Scheduled source to Brain", "Read a source, summarize it, and remember the reviewed result."], ["event", "App change to conditional action", "Watch a read action, triage changes, and follow a branch."], ["api", "Fetch and parse an API", "Read structured data and use it in later steps."], ["ask", "Ask KAI", "A simple manual prompt with a saved result."], ["research", "Plan and write a research brief", "Use separate agents and models to plan and draft."], ["loop", "Review and refine", "Improve a draft through a bounded feedback loop."]];
-  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, modelChoice, modelChoices, modelId, localReady, migrateModels };
+  return { catalog, types, meta, defaults, node, edge, ports, fromLegacy, importDocument, exportDocument, validateGraph, template, templates, clone, modelPolicy, modelOrder, modelChoice, modelChoices, modelId, localReady, migrateModels, migrateOutputs };
 });

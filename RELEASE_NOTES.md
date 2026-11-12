@@ -1,4 +1,14 @@
-# Workflows 0.3.12
+# Workflows 0.3.13
+
+Agent nodes now support **Output format → JSON**, an optional JSON schema, and up to two format repairs. A JSON step completes only after the response parses and matches its contract. Fenced JSON is normalized; incomplete JSON continues even when a provider reports `stop` or omits its finish reason. Wrong shapes receive bounded complete repairs. Every accepted raw response is saved before acknowledgment, and all recovery calls share the output token budget, continuation limit, model policy and Core credit consent. Uncertain requests and denied credit approval are not retried.
+
+Previously imported researched-article workflows with the original outline instructions automatically gain the JSON contract on update. It requires a title, the requested number of sections, and a heading with two requirements per section. Model selections, prompts, code, schedules and past run snapshots are preserved. Customized outline prompts can opt in through the Agent's Output format and JSON schema controls. The updated import example asks for shorter requirements to fit provider reply limits.
+
+Update Workflows to **0.3.13** from the in-app catalog, then start a new run of the existing workflow. Core **0.7.25+** is required; no new Core or server deployment is required for JSON recovery. A failed historical run remains unchanged. Recovery may use additional credits within the configured limits; it cannot guarantee model quality or network availability.
+
+Validation includes replaying the reported Gemma truncation, full article graph completion with synthetic responses, credit/error boundaries, saved-workflow migration and real Core native UI/bridge checks. These checks do not claim a live paid run on the user's provider computers.
+
+## Previous release: Workflows 0.3.12
 
 Choose a model once, then choose **Run on → Local only, Network only, or Local and network**. When both are allowed, choose **Local first** or **Network first**. Each primary and ordered fallback model has these controls, with separate availability shown for this computer and the network. Agent nodes can inherit the entire workflow policy or override it. Copilot and Discover also support model locations.
 

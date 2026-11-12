@@ -76,3 +76,33 @@ test("article input and outline shape fail clearly without an extra QA agent", a
   await assert.rejects(V.evaluate(nodes.find(n=>n.id==="plan").config.source,{...scope,item:{text:'{"title":"x","sections":[]}'},nodes:{brief:b}},undefined,false),/requested number/);
   assert.equal(nodes.filter(n=>n.type==="agent").length,4);assert.ok(!nodes.some(n=>n.type==="approval"));
 });
+test("the reported truncated outline recovers through the complete 800-word article graph", async t => {
+  const f = fixture(t, "kai.workflows"), store = new CompanionStore({ dataDir: f.root, safeStorage: f.api.secrets });
+  const prefix = fs.readFileSync(path.join(__dirname, "fixtures/gemma-outline-truncated.txt"), "utf8");
+  const suffix = ' between them.","Describe available tools."]},{"heading":"Conclusion","points":["Summarize the process.","Describe its limitations."]}]}';
+  let outlines = 0, writers = 0, requests = 0;
+  f.api.network.models = async () => [{ model: "gemma3-12b", available: true, maxOutput: 512 }];
+  f.api.wallet = { authorize: async () => ({}), complete: async request => {
+    requests++;
+    const p = request.messages[1].content, stage = p.match(/STAGE: (\w+)/)[1]; let content;
+    if (stage === "TOPIC_DISCOVERY") content = "Research map: data, training, evaluation and limitations.";
+    if (stage === "OUTLINE") content = ++outlines === 1 ? prefix : suffix;
+    if (stage === "SECTION_RESEARCH") content = "Explain the evidence and its limitations.";
+    if (stage === "SECTION_WRITING") { writers++; const s = JSON.parse(p.match(/Assigned heading, word budget and requirements: (.+)/)[1]); content = Array(s.word_count).fill("Evidence").join(" ") + " [S" + s.id + "-1]"; }
+    assert.ok(content); return { choices: [{ message: { content }, finish_reason: "stop" }], usage: { completion_tokens: 498 } };
+  } };
+  const inference = createInference(f.api, (result, id) => store.change(d => (d.runs.find(r => r.id === id).networkCalls ||= []).push(result)));
+  const engine = new CompanionWorkflows({ store, connections: { list: () => [] }, models: () => [], runLocal: o => inference.run(o), canReviewNetwork: () => true, privacyMode: () => "network", lookup, fetchImpl: webMock }); t.after(() => engine.stop());
+  // Simulate an already imported definition, with the user's current model order.
+  const legacy = JSON.parse(source).workflow;
+  Object.assign(legacy, { model: "gemma3-12b", modelSource: "network", fallbackModels: [] });
+  for (const n of legacy.graph.nodes.filter(n => n.type === "agent")) Object.assign(n.config, { model: "", fallbackModels: [] });
+  const planner = legacy.graph.nodes.find(n => n.id === "outline_agent").config; delete planner.outputFormat; delete planner.outputSchema;
+  const saved = engine.save(legacy), id = engine.begin(saved.id, { topic: "How does AI work?", word_count: 800 });
+  let run; for (let i = 0; i < 1500; i++) { run = engine.get(id); if (["completed", "failed", "waiting"].includes(run.status)) break; await new Promise(resolve => setTimeout(resolve, 10)); }
+  assert.equal(run.status, "completed", run.error); assert.equal(outlines, 2); assert.equal(writers, 5); assert.equal(requests, 13);
+  assert.equal(run.frames.root.states.outline_agent.outputs.main[0].json.sections.length, 5);
+  const plan = run.frames.root.states.plan.outputs.main[0]; assert.deepEqual(plan.sections.map(s => s.word_count), [96, 214, 213, 213, 64]);
+  assert.match(run.output[0].text, /Actual body words: 800/);
+  assert.equal(run.networkCalls.filter(c => c.purpose === "continue").length, 1);
+});

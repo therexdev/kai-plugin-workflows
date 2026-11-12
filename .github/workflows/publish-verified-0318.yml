@@ -1,0 +1,55 @@
+name: Publish verified Workflows 0.3.18
+on:
+  push:
+    branches: [release/verified-workflows-0.3.18]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: verified-workflows-0.3.18
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TESTED_SHA: 8f767eb7a0211efb1ec4afe3cbd94411cc243c30
+      RELEASE_SHA: 8ba579fac675492d11480023870e894675f02377
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8ba579fac675492d11480023870e894675f02377
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify successful three-platform CI and identical release source
+        shell: bash
+        run: |
+          gh api repos/therexdev/kai-plugin-workflows/actions/runs/43242155774 > "$RUNNER_TEMP/verified-run.json"
+          gh api repos/therexdev/kai-plugin-workflows/actions/runs/43242155774/jobs > "$RUNNER_TEMP/verified-jobs.json"
+          node <<'NODE'
+          const fs=require("node:fs"),assert=require("node:assert/strict"),path=require("node:path");
+          const run=JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP,"verified-run.json")));
+          assert.equal(run.head_sha,process.env.TESTED_SHA);assert.equal(run.conclusion,"success");
+          const {jobs}=JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP,"verified-jobs.json")));
+          for(const os of ["ubuntu-latest","macos-latest","windows-latest"])assert(jobs.some(j=>j.name==="verify ("+os+")"&&j.conclusion==="success"));
+          NODE
+          test "$(git rev-parse "$TESTED_SHA^{tree}")" = "$(git rev-parse "$RELEASE_SHA^{tree}")"
+      - run: npm test
+      - name: Reproduce and verify the exact publisher-signed package
+        run: |
+          node scripts/assemble-signed-package.js
+          node scripts/verify-package.js
+          node -e 'const fs=require("node:fs"),c=require("node:crypto"),a=require("node:assert/strict");a.equal(c.createHash("sha256").update(fs.readFileSync("dist/kai-plugin-workflows-0.3.18.kaiplugin")).digest("hex"),"193345213710d647ec5d9eea0401a826716384bdfae3d2ec8816514e1c0a88da")'
+      - name: Publish immutable verified release
+        shell: bash
+        run: |
+          asset=kai-plugin-workflows-0.3.18.kaiplugin
+          if ! gh release view v0.3.18 >/dev/null 2>&1; then
+            gh release create v0.3.18 "dist/$asset" --target "$RELEASE_SHA" --title "Workflows 0.3.18" --notes-file RELEASE_NOTES.md || true
+          fi
+          mkdir -p "$RUNNER_TEMP/published-workflows"
+          gh release download v0.3.18 --pattern "$asset" --dir "$RUNNER_TEMP/published-workflows"
+          cmp "dist/$asset" "$RUNNER_TEMP/published-workflows/$asset"

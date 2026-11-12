@@ -1,0 +1,12 @@
+  await check("Native partial reply, JSON correction and saved-output notices preserve original text",async()=>{
+    await new Promise(resolve=>setTimeout(resolve,1100));
+    const id="kai.workflows", raw=fs.readFileSync(path.join(sources,"kai-plugin-workflows/test/fixtures/gemma-outline-missing-bracket.txt"),"utf8");
+    const schema=JSON.parse(fs.readFileSync(path.join(sources,"kai-plugin-workflows/examples/researched-article.workflow.json"),"utf8")).workflow.graph.nodes.find(n=>n.id==="outline_agent").config.outputSchema;
+    schema.properties.sections.minItems=5;schema.properties.sections.maxItems=5;
+    const parsed=await appEval(id,`window.KaiWorkflowOutput.inspect(${JSON.stringify(raw)},${JSON.stringify(schema)})`);
+    assert.equal(parsed.valid,true);assert.equal(parsed.value.sections.length,5);assert.equal(parsed.recovery.edits.length,1);
+    // Only the displayed snapshot is synthetic; never alter saved run history.
+    const result=await appEval(id,`(async()=>{const state=await window.kai.call("workflows.status",{});const r=state.runs[0];r.networkCalls=[{model:"gemma3-12b",source:"network",interrupted:true,terminal:true,outputRecovery:${JSON.stringify(parsed.recovery)},completion:{choices:[{message:{content:${JSON.stringify(raw)}}}]}}];r.steps[0].recovery={source:"saved-model-results"};const host=document.querySelector('.wf-workspace').parentElement;window.KaiWorkflows.render(host,{state,section:"runs",manage:(action,input)=>window.kai.call('workflows.'+action,input),navigate:async()=>{}});const filter=host.querySelector('[data-field=runWorkflow]');filter.value='';filter.dispatchEvent(new Event('change',{bubbles:true}));const card=host.querySelector('[data-run="'+r.id+'"]');card.open=true;card.querySelector('.wf-network-results').open=true;card.querySelector('.wf-run-step').open=true;return{partial:card.textContent.includes('Verified partial network reply saved.'),local:card.textContent.includes('JSON formatting recovered locally; no extra model call.'),saved:card.textContent.includes('Used saved model output; no new model call.'),raw:card.querySelector('.wf-network-results pre').textContent}})()`);
+    assert.equal(result.partial,true);assert.equal(result.local,true);assert.equal(result.saved,true);assert.equal(result.raw,raw);
+    const file=path.join(output,"workflow-json-local-recovery.png");await application.evaluate((_electron,{id,file})=>global.__foundationCapture(file,id),{id,file});report.screenshots.push(file);
+  });

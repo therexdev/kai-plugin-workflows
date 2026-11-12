@@ -70,7 +70,7 @@ function createInference(api, recordResult) {
       initial = initial[0]?.role === "system" ? [{ ...initial[0], content: initial[0].content + "\n" + contract }, ...initial.slice(1)] : [{ role: "system", content: contract }, ...initial];
     }
     const safeText = !json && options.continuationMode === "overlap";
-    let messages = initial, answer = "", cursor = 0, repairs = 0, boundaryRepairs = 0, purpose = "generate", rotate = false, partLimit = Infinity;
+    let messages = initial, answer = "", cursor = 0, repairs = 0, boundaryRepairs = 0, purpose = "generate", rotate = false, partLimit = Infinity, lastFragment = "";
     const budget = Math.max(1, Math.min(4096, Number(options.maxTokens) || 1200)), continuations = Math.max(0, Math.min(16, Number(options.maxContinuations ?? (json ? 4 : 0)) || 0));
     const repairLimit = Math.max(0, Math.min(2, Number(options.maxFormatRepairs ?? 2) || 0));
     let remaining = budget;
@@ -98,7 +98,11 @@ function createInference(api, recordResult) {
           const replacement = Output.inspect(chunk, schema, options.allowToolCall);
           if (replacement.valid) checked = replacement;
           else if (!fragment.trim()) checked.incomplete = false;
+          else if (checked.incomplete && fragment.trim() === lastFragment) {
+            checked = { valid: false, incomplete: false, error: "The JSON continuation repeated its previous fragment without completing the response." };
+          }
         }
+        lastFragment = fragment.trim();
       }
       // Save every accepted part before acknowledging a paid network delivery.
       await recordResult({ model: chosen.alias, source: chosen.source, requestedModel: options.model, modelSource: options.modelSource,

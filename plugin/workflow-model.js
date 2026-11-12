@@ -163,7 +163,7 @@
     }
     if (!object(g) || !Array.isArray(g.nodes) || !Array.isArray(g.edges)) throw Error("Workflow graphs need nodes and edges arrays.");
     if (g.version !== undefined && g.version !== 2) throw Error("Unsupported workflow graph version.");
-    if (!g.nodes.length || g.nodes.length > 60 || g.edges.length > 160) throw Error("Use 1–60 nodes and at most 160 connections.");
+    if (!g.nodes.length || g.nodes.length > 96 || g.edges.length > 160) throw Error("Use 1–96 nodes and at most 160 connections.");
     if (g.nodes.some(n => !object(n) || typeof n.id !== "string" || !object(n.config))) throw Error("Each node needs an ID and a settings object.");
     if (g.edges.some(e => !object(e))) throw Error("Each connection must be an object.");
     if (g.nodes?.some(n => n.kind)) {
@@ -214,7 +214,7 @@
   function validateGraph(g) {
     const errors = [], warnings = [], error = (message, nodeId) => errors.push({ message, nodeId });
     if (!g || !Array.isArray(g.nodes) || !Array.isArray(g.edges)) return { errors: [{ message: "Add a workflow graph." }], warnings };
-    if (!g.nodes.length || g.nodes.length > 60 || g.edges.length > 160) error("Use 1–60 nodes and at most 160 connections.");
+    if (!g.nodes.length || g.nodes.length > 96 || g.edges.length > 160) error("Use 1–96 nodes and at most 160 connections.");
     const ids = new Set(); for (const n of g.nodes) { if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(n.id) || ids.has(n.id)) error("Nodes need unique letter-led IDs.", n.id); ids.add(n.id); if (!types.includes(n.type)) error("Unsupported node: " + n.type, n.id); if (!n.config || typeof n.config !== "object" || Array.isArray(n.config)) error("Node settings must be an object.", n.id); }
     const triggers = g.nodes.filter(n => n.type === "trigger"); if (triggers.length !== 1) error("Add exactly one trigger.");
     const seen = new Set(); for (const e of g.edges) { const from = g.nodes.find(n => n.id === e.from); if (!from || !ids.has(e.to)) error("A connection points to a missing node."); else if (!ports(from).includes(e.port || "main")) error("Unknown output port: " + e.port, e.from); const key = [e.from, e.to, e.port, e.input].join(":"); if (seen.has(key)) error("Remove the duplicate connection.", e.from); seen.add(key); if (e.to === triggers[0]?.id) error("A trigger cannot have incoming connections.", e.to); }

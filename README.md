@@ -81,3 +81,5 @@ Network Agents save verified partial replies from terminal provider jobs and con
 ## Reusable quality checks and AIO articles
 
 Workflows 0.3.18 adds a configurable Quality Check node and verified-overlap text continuations. The new **AIO researched article** template keeps editorial policy in the workflow: research, outline review, per-section coaching/writing/revision, cited evidence, answer/FAQ/metadata/social outputs from reviewed section summaries, derived FAQ schema and a final review report. Unresolved drafts are labeled **Needs review**, not silently approved. Existing workflows are preserved; import the new template to use this pipeline. See [AIO setup and limits](docs/aio-article-workflow.md) and [reusable quality rules](docs/quality-checks.md).
+
+Workflows 0.3.19 builds and revises outlines and publishing extras in small validated parts. Invalid JSON prefixes use bounded repair instead of repeated continuation calls. Import the updated AIO template to use the smaller tasks; existing custom graphs are preserved.

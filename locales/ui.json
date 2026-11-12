@@ -307,7 +307,6 @@
     "Unsupported node:": "Nodo no compatible:",
     "Up to": "Hasta",
     "Up to {0} iterations": "Hasta {0} iteraciones",
-    "Use 1–60 nodes and at most 160 connections.": "Usa de 1 a 60 nodos y un máximo de 160 conexiones.",
     "Use =item.field, =item.json.field, =nodes.ID.text, or {{previous}}. Expressions use JavaScript.": "Usa =item.field, =item.json.field, =nodes.ID.text o {{previous}}. Las expresiones usan JavaScript.",
     "Use a public HTTPS endpoint or a saved API connection.": "Usa un endpoint HTTPS público o una conexión API guardada.",
     "Use distinct destination input names (A and B) for position or key merges.": "Usa nombres de entrada de destino distintos (A y B) para unir por posición o clave.",
@@ -488,7 +487,8 @@
     "Check required fields, counts, citations and configured rules without a model call.": "Comprueba campos, recuentos, citas y reglas sin llamar a un modelo.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "Los controles conservan la entrada y añaden valid, issues y metrics. Las citas se comprueban por ID; un revisor debe evaluar el respaldo de las afirmaciones. Los límites y listas aceptan expresiones =.",
     "Reference URLs (JSON array or expression)": "URL de referencia (matriz JSON o expresión)",
-    "JSON formatting recovered locally; no extra model call.": "Formato JSON recuperado localmente; sin otra llamada al modelo."
+    "JSON formatting recovered locally; no extra model call.": "Formato JSON recuperado localmente; sin otra llamada al modelo.",
+    "Use 1–96 nodes and at most 160 connections.": "Usa de 1 a 96 nodos y un máximo de 160 conexiones."
   },
   "pt-BR": {
     ", and": ", e",
@@ -798,7 +798,6 @@
     "Unsupported node:": "Nó não compatível:",
     "Up to": "Até",
     "Up to {0} iterations": "Até {0} iterações",
-    "Use 1–60 nodes and at most 160 connections.": "Use de 1 a 60 nós e no máximo 160 conexões.",
     "Use =item.field, =item.json.field, =nodes.ID.text, or {{previous}}. Expressions use JavaScript.": "Use =item.field, =item.json.field, =nodes.ID.text ou {{previous}}. As expressões usam JavaScript.",
     "Use a public HTTPS endpoint or a saved API connection.": "Use um endpoint HTTPS público ou uma conexão API salva.",
     "Use distinct destination input names (A and B) for position or key merges.": "Use nomes de entrada de destino distintos (A e B) para combinar por posição ou chave.",
@@ -979,7 +978,8 @@
     "Check required fields, counts, citations and configured rules without a model call.": "Verifique campos, contagens, citações e regras sem chamar um modelo.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "As verificações preservam a entrada e adicionam valid, issues e metrics. Citações são verificadas por ID; um revisor deve avaliar o apoio às afirmações. Limites e listas aceitam expressões =.",
     "Reference URLs (JSON array or expression)": "URLs de referência (array JSON ou expressão)",
-    "JSON formatting recovered locally; no extra model call.": "Formatação JSON recuperada localmente; sem outra chamada ao modelo."
+    "JSON formatting recovered locally; no extra model call.": "Formatação JSON recuperada localmente; sem outra chamada ao modelo.",
+    "Use 1–96 nodes and at most 160 connections.": "Use de 1 a 96 nós e no máximo 160 conexões."
   },
   "fr": {
     ", and": ", et",
@@ -1289,7 +1289,6 @@
     "Unsupported node:": "Nœud non pris en charge :",
     "Up to": "Jusqu’à",
     "Up to {0} iterations": "Jusqu’à {0} itérations",
-    "Use 1–60 nodes and at most 160 connections.": "Utilisez 1 à 60 nœuds et au plus 160 connexions.",
     "Use =item.field, =item.json.field, =nodes.ID.text, or {{previous}}. Expressions use JavaScript.": "Utilisez =item.field, =item.json.field, =nodes.ID.text ou {{previous}}. Les expressions utilisent JavaScript.",
     "Use a public HTTPS endpoint or a saved API connection.": "Utilisez un point de terminaison HTTPS public ou une connexion API enregistrée.",
     "Use distinct destination input names (A and B) for position or key merges.": "Utilisez des noms d’entrée distincts (A et B) pour fusionner par position ou clé.",
@@ -1470,7 +1469,8 @@
     "Check required fields, counts, citations and configured rules without a model call.": "Vérifiez champs, nombres, références et règles sans appel de modèle.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "Les contrôles conservent l’entrée et ajoutent valid, issues et metrics. Les références sont vérifiées par identifiant ; un relecteur doit évaluer les preuves. Limites et listes acceptent les expressions =.",
     "Reference URLs (JSON array or expression)": "URL de référence (tableau JSON ou expression)",
-    "JSON formatting recovered locally; no extra model call.": "Format JSON récupéré localement ; aucun appel supplémentaire au modèle."
+    "JSON formatting recovered locally; no extra model call.": "Format JSON récupéré localement ; aucun appel supplémentaire au modèle.",
+    "Use 1–96 nodes and at most 160 connections.": "Utilisez 1 à 96 nœuds et au plus 160 connexions."
   },
   "de": {
     ", and": "und",
@@ -1780,7 +1780,6 @@
     "Unsupported node:": "Nicht unterstützter Knoten:",
     "Up to": "Bis zu",
     "Up to {0} iterations": "Bis zu {0} Wiederholungen",
-    "Use 1–60 nodes and at most 160 connections.": "Verwende 1–60 Knoten und höchstens 160 Verbindungen.",
     "Use =item.field, =item.json.field, =nodes.ID.text, or {{previous}}. Expressions use JavaScript.": "Verwende =item.field, =item.json.field, =nodes.ID.text oder {{previous}}. Ausdrücke verwenden JavaScript.",
     "Use a public HTTPS endpoint or a saved API connection.": "Verwende einen öffentlichen HTTPS-Endpunkt oder eine gespeicherte API-Verbindung.",
     "Use distinct destination input names (A and B) for position or key merges.": "Verwende unterschiedliche Zieleingaben (A und B) für Zusammenführungen nach Position oder Schlüssel.",
@@ -1961,6 +1960,7 @@
     "Check required fields, counts, citations and configured rules without a model call.": "Felder, Anzahlen, Zitate und Regeln ohne Modellaufruf prüfen.",
     "Checks preserve the input and add a report with valid, issues and metrics. Citation checks verify IDs; a reviewer must assess support for claims. Limits and lists accept = expressions.": "Prüfungen behalten die Eingabe und ergänzen valid, issues und metrics. Zitate werden anhand ihrer IDs geprüft; ein Prüfer muss die Belege bewerten. Grenzen und Listen erlauben = Ausdrücke.",
     "Reference URLs (JSON array or expression)": "Referenz-URLs (JSON-Array oder Ausdruck)",
-    "JSON formatting recovered locally; no extra model call.": "JSON-Format lokal wiederhergestellt; kein zusätzlicher Modellaufruf."
+    "JSON formatting recovered locally; no extra model call.": "JSON-Format lokal wiederhergestellt; kein zusätzlicher Modellaufruf.",
+    "Use 1–96 nodes and at most 160 connections.": "Verwende 1–96 Knoten und höchstens 160 Verbindungen."
   }
 }

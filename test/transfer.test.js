@@ -93,6 +93,15 @@ test("invalid documents cannot write even a partial workflow", async t => {
   assert.throws(() => Transfer.parseDocument(" ".repeat(Transfer.MAX_BYTES) + "{}"), /too large/);
   assert.throws(() => Transfer.parseDocument('["x",'.repeat(50) + "[]" + "]".repeat(50)), /deeply/);
 });
+test("larger partitioned workflows remain bounded on import and draft save", async t => {
+  const { app } = appFixture(t), w = definition();
+  for (let i = w.graph.nodes.length; i < 96; i++) w.graph.nodes.push(Model.node("code", "part" + i, undefined, { source: "return items;" }));
+  assert.equal(Transfer.parseDocument(JSON.stringify(w)).graph.nodes.length, 96);
+  const imported = await app.call("workflows.importWorkflow", { text: JSON.stringify(w) });
+  w.graph.nodes.push(Model.node("code", "tooMany"));
+  assert.throws(() => Transfer.parseDocument(JSON.stringify(w)), /1–96/);
+  await assert.rejects(app.call("workflows.workflow", { ...imported, graph: w.graph, draft: true }), /1–96/);
+});
 test("missing machine-specific references stay editable drafts and cannot be saved ready", async t => {
   const { app } = appFixture(t), w = Model.template("ask", "model-on-another-machine");
   const imported = await app.call("workflows.importWorkflow", { text: JSON.stringify(w) });

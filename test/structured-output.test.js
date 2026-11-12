@@ -144,6 +144,30 @@ test("existing article definitions gain JSON contracts once without changing mod
 });
 module.exports = { truncated, tail };
 
+test("only valid JSON prefixes qualify for a continuation, including partial numbers and escapes", () => {
+ for (const prefix of ['{"x":"unfinished', '{"x":tru', '{"x":-1.2e+', '[null,', '"\\u12', '{"x" : ']) assert.equal(Output.inspect(prefix).incomplete, true, prefix);
+ for (const bad of ['{"x":"missing quote\n]}', '{"x":01', '{"x":truX', '{"x":1,]', '{"x" "y', '{"x":"\\q', '[,', '[true false', '{"x":NaN', '"\\u1z']) assert.equal(Output.inspect(bad).incomplete, false, bad);
+ const value={text:'quoted " string \\ newline\n',nested:[true,null,-1.25e9,{emoji:'😀'}]};
+ const json=JSON.stringify(value);for(let i=1;i<json.length;i++)assert.equal(Output.inspect(json.slice(0,i)).incomplete,true,'valid prefix '+i);
+ assert.equal(Output.inspect('['.repeat(66)+'0').incomplete,false,'Prefix parser is bounded');
+});
+test("captured paid DUI outline fragments request repair as soon as the prefix becomes invalid", async t => {
+ const parts=require('./fixtures/dui-outline-broken-prefix.json');
+ for(const pair of [[parts[0],parts[1]],[parts[3],parts[4]]]) {
+  assert.equal(Output.inspect(pair[0].text).incomplete,true);
+  assert.equal(Output.inspect(pair.map(p=>p.text).join('')).incomplete,false);
+  const f=setup(t,[...pair.map(p=>reply(p.text,p.finish,256)),reply(truncated+tail)]);
+  assert.equal(JSON.parse(await f.run()).sections.length,5);
+  assert.deepEqual(f.saved.map(p=>p.purpose),['generate','continue','repair']);
+  assert.equal(f.calls.length,3,'No repeated closing-bracket requests');
+ }
+});
+test("an identical unfinished fragment stops continuation and uses bounded repair", async t => {
+ const f=setup(t,[reply('{"x":"'),reply('repeated'),reply('repeated'),reply(truncated+tail)]);
+ assert.equal(JSON.parse(await f.run()).sections.length,5);
+ assert.deepEqual(f.saved.map(p=>p.purpose),['generate','continue','continue','repair']);
+});
+
 test("captured seven-section live outline joins per-fragment fences without a paid repair",async t=>{
  const parts=require('./fixtures/gemma-fragment-fences.json'),schema=structuredClone(contract);schema.properties.sections.minItems=schema.properties.sections.maxItems=7;
  const f=setup(t,parts.map((text,i)=>reply(text,i?'stop':'length',i?182:256)),{outputSchema:schema,maxFormatRepairs:0});

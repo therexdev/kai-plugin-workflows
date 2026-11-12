@@ -1,14 +1,14 @@
 # AIO reviewed article
 
-Requires Workflows 0.3.18 and Core 0.7.28 or later. Open **Templates → AIO researched article**, or import `examples/aio-article.workflow.json`. Save the disabled draft after reviewing its model order and settings. Start with a topic and an article body word target of 200–2400. No interactive intake interview runs. Optionally supply `source_urls` as a JSON array of up to ten public reference-page URLs. Supplied pages pass the same page-reading and topic checks as search discoveries; search fills the remaining source slots.
+Requires Workflows 0.3.19 and Core 0.7.28 or later. Open **Templates → AIO researched article**, or import `examples/aio-article.workflow.json`. Save the disabled draft after reviewing its model order and settings. Start with a topic and an article body word target of 200–2400. No interactive intake interview runs. Optionally supply `source_urls` as a JSON array of up to ten public reference-page URLs. Supplied pages pass the same page-reading and topic checks as search discoveries; search fills the remaining source slots.
 
 ## What runs
 
 1. Read topic evidence and prepare a compact structured research/strategy brief.
-2. Plan a distinct angle, headings and requirements, then review and revise the outline.
+2. Plan a distinct angle and the whole heading list in one compact request, then generate and validate each section’s requirements separately. Assemble the outline deterministically, reject duplicate headings, review coverage and revise using the same small parts.
 3. For each section, read sources, create a compact structured coaching card, draft prose, run mechanical checks, and review factual support, citation coverage, reader intent, clarity and repetition.
 4. Revise only reported issues and recheck the result. Mechanical errors go straight to the reviser; semantic review runs after those checks pass. Accepted sections and all review attempts remain in run history.
-5. Create a direct answer, takeaways, four FAQ answers, metadata and social copy from reviewed section summaries, then review them.
+5. Create metadata, a direct answer, takeaways and each FAQ in separate small structured requests from reviewed section summaries, then assemble and review the extras.
 6. Derive FAQ JSON-LD from the final FAQ, verify parity and references, and perform a final cross-section coverage review using the reviewed section summaries and extras.
 
 This adapts the supplied AIO Content Studio's article pipeline. It does not migrate its full application, competitor crawling, account storage or publishing integrations. Coaching and combined editorial/SEO review run inside the workflow; they are not hard-coded plugin roles. The FAQ is also a compact answer bank. Schema describes visible FAQ content; it does not promise eligibility for a search feature.
@@ -29,6 +29,6 @@ The workflow canonicalizes parenthesized source IDs such as `(S1-1)` into `[S1-1
 
 Network work uses Core credit consent. Model continuations, JSON repairs and editorial revisions may use additional credits, all within configured limits. Paid requests with uncertain outcomes do not trigger blind retries. Use **Retry failed work** for an eligible failed model or source step to retain completed work; **Run again** starts over.
 
-Text agents use **Verify repeated ending**. Continuations repeat an exact suffix; the runner removes only that verified overlap, preserving split words, whitespace, links and hyphens. An invalid boundary can request at most two corrections within the same token/continuation limits, advancing through the configured model order after a terminal invalid reply. JSON format corrections use that same bounded fallback policy; uncertain paid requests are never replaced blindly. Raw replies and receipts remain unchanged. Existing custom workflows retain their prior behavior; opt in per text Agent or use this new template.
+Text agents use **Verify repeated ending**. Continuations repeat an exact suffix; the runner removes only that verified overlap, preserving split words, whitespace, links and hyphens. An invalid boundary can request at most two corrections within the same token/continuation limits, advancing through the configured model order after a terminal invalid reply. JSON recovery distinguishes a valid unfinished prefix from broken syntax. Missing quotes, invalid escapes, trailing commas and repeated incomplete fragments request a bounded full repair instead of repeated continuations. JSON format corrections use that same bounded fallback policy; uncertain paid requests are never replaced blindly. Raw replies and receipts remain unchanged. Existing custom workflows retain their prior behavior; opt in per text Agent or use this new template.
 
 The importer creates a new draft rather than overwriting your existing article workflow. Installing a plugin update alone does not replace your customized graph with this AIO pipeline.

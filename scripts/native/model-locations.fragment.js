@@ -1,0 +1,27 @@
+  await check("Workflows model locations and fallback preferences survive native editing and JSON transfer", async()=>{
+   const id="kai.workflows", primary="qwen25-32b";
+   const workflow=await appEval(id, `window.kai.call("workflows.workflow",{name:"Native model locations",model:"koinos-network:qwen25-32b",fallbackModels:["koinos-network:phi-4","koinos-network:qwen25-14b"],graph:{version:2,nodes:[{id:"start",type:"trigger",label:"Start",position:{x:80,y:70},config:{kind:"manual"}},{id:"agent",type:"agent",label:"Inherited models",position:{x:80,y:220},config:{model:"",prompt:"{{input}}"}}],edges:[{from:"start",to:"agent",port:"main",input:"main"}]}})`);
+   await appEval(id, 'document.querySelector("[data-section=runs]").click();true');
+   await until(()=>appEval(id,'!!document.querySelector(".wf-run-filters")'),"History did not render");
+   await appEval(id, 'document.querySelector("[data-section=saved]").click();true');
+   await until(()=>appEval(id,`!!document.querySelector('[data-wf="edit"][data-id="${workflow.id}"]')`),"Workflow list did not refresh");
+   await appEval(id,`document.querySelector('[data-wf="edit"][data-id="${workflow.id}"]').click();document.querySelector('[data-wf="inspector"][data-id="settings"]').click();true`);
+   const choices=await appEval(id,'({primary:document.querySelector("[data-field=model]").value,source:document.querySelector("[data-field=modelSource]").value,hidden:document.querySelector(".wf-model-preference").hidden,duplicates:[...document.querySelector("[data-field=model]").options].map(o=>o.value)})');
+   assert.equal(choices.primary,primary);assert.equal(choices.source,"network");assert.equal(choices.hidden,true);assert.equal(new Set(choices.duplicates).size,choices.duplicates.length);
+   const choose=async(field,value)=>appEval(id,`(()=>{const e=document.querySelector('[data-field="${field}"]');e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+   await choose("modelSource","both");await choose("modelPreference","local");
+   assert.equal(await appEval(id,'document.querySelector(".wf-model-preference").hidden'),false);
+   await choose("fallbackModels.0.modelSource","both");await choose("fallbackModels.0.modelPreference","network");
+   await appEval(id,'document.querySelectorAll("[data-wf=fallbackDown]")[0].click();document.querySelector("[data-wf=save]").click();true');
+   await until(()=>appEval(id,'document.querySelector(".wf-notice")?.textContent.includes("Workflow saved")'),"Native save did not finish");
+   const expected=[{model:"qwen25-14b",modelSource:"network",modelPreference:"network"},{model:"phi-4",modelSource:"both",modelPreference:"network"}];
+   const saved=await appEval(id,`window.kai.call("workflows.get",{id:"${workflow.id}"})`);assert.equal(saved.modelSource,"both");assert.equal(saved.modelPreference,"local");assert.deepEqual(saved.fallbackModels,expected);assert.equal(saved.graph.nodes[1].config.model,"");
+   const exported=await appEval(id,`window.kai.call("workflows.export",{id:"${workflow.id}"})`);assert.deepEqual(exported.workflow.fallbackModels,expected);assert.equal(exported.workflow.modelSource,"both");
+   const imported=await appEval(id,`window.kai.call("workflows.importWorkflow",{text:${JSON.stringify(JSON.stringify(exported))}})`);assert.equal(imported.draft,true);assert.deepEqual(imported.fallbackModels,expected);assert.equal(imported.modelPreference,"local");
+   await appEval(id,'document.querySelector("[data-field=model]").scrollIntoView({block:"start"});true');
+   const file=path.join(output,"workflow-model-locations.png");await application.evaluate((_electron,{id,file})=>global.__foundationCapture(file,id),{id,file});report.screenshots.push(file);
+   await appEval(id,'document.querySelector("[data-wf=inspector][data-id=copilot]").click();document.querySelector("[data-field=assistRequest]").value="Keep this draft request";true');
+   await choose("assistModelSource","network");await choose("assistModelSource","both");await choose("assistModelPreference","network");
+   assert.equal(await appEval(id,'document.querySelector("[data-field=assistRequest]").value'),"Keep this draft request");
+   assert.equal(await appEval(id,'document.querySelector(".wf-model-preference").hidden'),false);
+  });

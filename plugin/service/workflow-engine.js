@@ -23,7 +23,7 @@ function plan(graph) {
 function normalize(input, draft = false) {
   const policy = Model.modelPolicy(input);
   const graph = copy(input.graph); Model.migrateOutputs({ graph }); Model.migrateReliability({ graph }); const report = Model.validateGraph(graph);
-  const errors = draft ? report.errors.filter(e => /unique letter|Unsupported node|must be an object|1–60|Add a workflow graph/.test(e.message)) : report.errors;
+  const errors = draft ? report.errors.filter(e => /unique letter|Unsupported node|must be an object|1–96|Add a workflow graph/.test(e.message)) : report.errors;
   if (errors.length) throw new CompanionError(errors.map(e => e.message).slice(0, 4).join(" "));
   if (JSON.stringify(graph).length > 150000) throw new CompanionError("Workflow exceeds 150 KB.");
   for (const n of graph.nodes) {

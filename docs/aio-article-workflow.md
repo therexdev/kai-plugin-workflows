@@ -5,7 +5,7 @@ Requires Workflows 0.3.19 and Core 0.7.28 or later. Open **Templates → AIO res
 ## What runs
 
 1. Read topic evidence and prepare a compact structured research/strategy brief.
-2. Plan a distinct angle, then generate and validate one heading and its requirements per request. Assemble the outline deterministically, review it and revise it using the same small parts.
+2. Plan a distinct angle and the whole heading list in one compact request, then generate and validate each section’s requirements separately. Assemble the outline deterministically, reject duplicate headings, review coverage and revise using the same small parts.
 3. For each section, read sources, create a compact structured coaching card, draft prose, run mechanical checks, and review factual support, citation coverage, reader intent, clarity and repetition.
 4. Revise only reported issues and recheck the result. Mechanical errors go straight to the reviser; semantic review runs after those checks pass. Accepted sections and all review attempts remain in run history.
 5. Create metadata, a direct answer, takeaways and each FAQ in separate small structured requests from reviewed section summaries, then assemble and review the extras.

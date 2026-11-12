@@ -13,7 +13,7 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
   if(stage==="AIO_RESEARCH")content=JSON.stringify({intent:"Explain AI",facts:["AI learns from data. [S0-1]","Training identifies patterns. [S0-1]"],gaps:"Limited evidence.",angle:"Training versus inference"});
   else if(stage==="AIO_OUTLINE"||stage==="OUTLINE_REVIEW_REVISE"){
    const task=JSON.parse(p.match(/Task: (.+)/)[1]);
-   content=JSON.stringify({lines:task.key==="meta"?["Understanding how artificial intelligence works","Explain training versus inference"]:["AI topic "+(task.index+1),"Explain the evidence","Give a useful example"]});
+   content=JSON.stringify({lines:task.key==="meta"?["Understanding how artificial intelligence works","Explain training versus inference",...Array.from({length:task.count-2},(_,i)=>"AI topic "+(i+1))]:["Explain the evidence","Give a useful example"]});
   }
   else if(stage==="AIO_COACH")content=JSON.stringify({focus:"Explain training simply",facts:["Models learn from data."],gaps:"Limited evidence."});
   else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]);content=Array(a.section.word_count).fill("Evidence").join(" ");}
@@ -63,11 +63,11 @@ test("outline and extras revisions regenerate small parts and recheck their asse
   const M=require('../plugin/workflow-model');nodes.push(M.node('trigger','start'),M.node('output','out',undefined,{text:'{{previous}}'}));
   const edges=full.graph.edges.filter(e=>ids.has(e.from)&&ids.has(e.to));edges.push(M.edge('start',prefix),M.edge(prefix,'out','done'));
   const context={topic:'Explain AI',settings:{},section_count:9,budgets:Array(9).fill(200),article:[],sources:[]};
-  const artifact=kind==='outline'?{title:'x'.repeat(101),angle:'Evidence',sections:Array.from({length:9},(_,i)=>({heading:'Section '+i,points:['First requirement','Second requirement']}))}:{title:'x'.repeat(101),meta_description:'An evidence-based description',social:'Read the article.',direct_answer:'An evidence-based answer.',takeaways:['One','Two','Three'],faq:Array.from({length:4},(_,i)=>({question:'Question '+i+'?',answer:'Answer '+i+'.'}))};
+  const artifact=kind==='outline'?{title:'x'.repeat(101),angle:'Evidence',sections:Array.from({length:9},(_,i)=>({heading:'Section '+(i===1?0:i),points:['First requirement','Second requirement']}))}:{title:'x'.repeat(101),meta_description:'An evidence-based description',social:'Read the article.',direct_answer:'An evidence-based answer.',takeaways:['One','Two','Three'],faq:Array.from({length:4},(_,i)=>({question:'Question '+i+'?',answer:'Answer '+i+'.'}))};
   f.api.network.models=async()=>[{model:'gemma3-12b',available:true,maxOutput:256}];
   f.api.wallet={authorize:async()=>{},complete:async request=>{
    const p=request.messages[1].content;assert.doesNotMatch(p,/\{\{(?:item|nodes)\b/);const stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);
-   let value;if(stage.endsWith('_REVISE')){const task=JSON.parse(p.match(/Task: (.+)/)[1]);assert(task.count<=3);const lines=task.existing.slice();if(task.key==='meta')lines[0]='A clear evidence-based article title';value={lines};}else value={verdict:'PASS',items:[]};
+   let value;if(stage.endsWith('_REVISE')){const task=JSON.parse(p.match(/Task: (.+)/)[1]);assert(task.count<=11);const lines=task.existing.slice();if(task.key==='meta'){lines[0]='A clear evidence-based article title';if(kind==='outline')for(let i=2;i<lines.length;i++)lines[i]='Section '+(i-2);}value={lines};}else value={verdict:'PASS',items:[]};
    return {choices:[{message:{content:JSON.stringify(value)},finish_reason:'stop'}],usage:{completion_tokens:150},koin:{state:'charged'}};
   }};
   const inference=createInference(f.api,async()=>{}),engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[],runLocal:o=>inference.run(o),canReviewNetwork:()=>true,privacyMode:()=>"network"});

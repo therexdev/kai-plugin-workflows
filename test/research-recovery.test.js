@@ -148,3 +148,19 @@ test("provided reference pages use normal public-target and topic checks before 
  const result=await research("AI training",{topic:"AI training",sourceUrls:["http://127.0.0.1/private","https://evidence.example/ai"],maxPages:1,privacyMode:()=>"network",lookup:async()=>[{address:"8.8.8.8",family:4}],fetchImpl:async url=>{seen.push(url);return new Response('<html><title>AI training</title><p>'+"AI training uses data and examples. ".repeat(50)+"</p></html>",{headers:{"content-type":"text/html"}});}});
  assert.deepEqual(seen,["https://evidence.example/ai"]);assert.equal(result.provider,"provided");assert.equal(result.sources[0].provided,true);assert.equal(result.sources[0].read,true);
 });
+
+test("research retains verified evidence when a different page exhausts the time budget",async()=>{
+ const result=await research("AI training",{topic:"AI training",timeoutMs:100,maxPages:3,privacyMode:()=>"network",lookup,fetchImpl:async(url,{signal}={})=>{
+  if(url.includes("duckduckgo.com"))return new Response('<a class="result__a" href="https://evidence.example/fast">AI training</a><a class="result__a" href="https://evidence.example/slow">AI training delays</a>');
+  if(url.endsWith("/fast"))return page("AI training uses data");
+  return new Promise((resolve,reject)=>{const timer=setTimeout(()=>resolve(page("AI training late")),1000);signal.addEventListener("abort",()=>{clearTimeout(timer);reject(signal.reason);},{once:true});});
+ }});
+ assert.equal(result.sources.filter(s=>s.read).length,1);assert.equal(result.sources[0].url,"https://evidence.example/fast");assert.match(result.note,/time limit/);
+});
+
+test("research deadline without evidence is specific and cancellation never releases partial results",async()=>{
+ const options={topic:"AI training",timeoutMs:60,privacyMode:()=>"network",lookup,fetchImpl:async(_url,{signal})=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>resolve(new Response("")),1000);signal.addEventListener("abort",()=>{clearTimeout(timer);reject(signal.reason);},{once:true});})};
+ await assert.rejects(research("AI training",options),/Web research reached its time limit/);
+ const stop=new AbortController();stop.abort(new Error("User cancelled"));
+ await assert.rejects(research("AI training",{...options,signal:stop.signal}),/User cancelled/);
+});

@@ -9,14 +9,14 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
  f.api.wallet={complete:async request=>{
   assert(Buffer.byteLength(JSON.stringify(request.messages))<=24000,"Never silently truncate a model packet");
   const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let content;
-  const packet=()=>JSON.parse(p.match(/Packet: (.+)/)[1]);
+  const packet=()=>p.includes("Packet: ")?JSON.parse(p.match(/Packet: (.+)/)[1]):({artifact:p.match(/Artifact: (.+)/)[1],context:JSON.parse(p.match(/Context: (.+)/)[1])});
   if(stage==="AIO_RESEARCH")content="AI learns patterns from training data. [S0-1] Explain training, inference and limits.";
   else if(stage==="AIO_OUTLINE"){const n=Number(p.match(/Exactly (\d+) sections/)[1]);content=JSON.stringify({title:"Understanding how artificial intelligence works",angle:"Explain training versus inference",sections:Array.from({length:n},(_,i)=>({heading:"AI topic "+(i+1),points:["Explain the evidence","Give a useful example"]}))});}
   else if(stage==="AIO_COACH")content="Explain training with evidence and simple examples.";
   else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]);content=Array(a.section.word_count).fill("Evidence").join(" ");}
   else if(stage.endsWith("_REVIEW")){
-   let needs=false;if(stage==="SECTION_REVIEW_REVIEW"){const a=packet();needs=stuck||a.cycle===0;}
-   content=JSON.stringify({verdict:needs?"CHANGE_REQUEST":"PASS",items:needs?[{id:"citation-1",severity:"error",location:"section",evidence:"No citation",fix:"Cite supporting source [S1-1] with the section's actual ID."}]:[]});
+   let needs=false;if(stage==="SECTION_REVIEW_REVIEW"){const a=packet();needs=stuck||!a.artifact.includes("[S");}
+   const advisory=stage==="OUTLINE_REVIEW_REVIEW"; content=JSON.stringify({verdict:needs||advisory?"CHANGE_REQUEST":"PASS",...(stage==="SECTION_REVIEW_REVIEW"?{summary:"AI learns patterns from training data. ["+packet().context.sources[0].id+"]"}:{}),items:needs?[{id:"citation-1",severity:"error",location:"section",evidence:"No citation",fix:"Cite supporting source [S1-1] with the section's actual ID."}]:advisory?[{id:"style-note",severity:"warning",location:"outline",evidence:"Style preference",fix:"Consider shorter headings."}]:[]});
   }
   else if(stage==="SECTION_REVIEW_REVISE"){const a=packet();content=a.artifact.replace(/\s*\[S\d+-\d+\]/g,"")+" ["+a.context.sources[0].id+"]";}
   else if(stage==="AIO_EXTRAS")content=JSON.stringify({title:"Understanding how artificial intelligence works",meta_description:"An introduction to how artificial intelligence learns patterns from data, produces useful results, and encounters limitations.",direct_answer:"AI learns patterns from data and uses those patterns to produce results. [S1-1]",takeaways:["Models learn from data.","Training identifies patterns.","Models have limitations."],faq:Array.from({length:4},(_,i)=>({question:"How does AI work "+i+"?",answer:"AI learns patterns from data. [S1-1]"})),social:"Learn how AI works."});
@@ -37,5 +37,5 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
  for(const c of result.counts)assert.equal(c.target,c.actual);
  assert.equal(result.reviews[1].history[0].issues.some(x=>x.code==="citations-missing"),true);
  assert.equal(result.reviews[1].history.at(-1).issues.some(x=>x.code==="citations-missing"),false);
- assert.equal(result.quality.valid,true);
+ assert.equal(result.quality.valid,true);assert.equal(calls.includes("OUTLINE_REVIEW_REVISE"),false,"Advisory-only reviews do not consume revision credits");
 });

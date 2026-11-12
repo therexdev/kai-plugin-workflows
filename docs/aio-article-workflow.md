@@ -8,8 +8,8 @@ Requires Workflows 0.3.18 and Core 0.7.28 or later. Open **Templates → AIO res
 2. Plan a distinct angle, headings and requirements, then review and revise the outline.
 3. For each section, read sources, create an evidence-backed coaching card, draft prose, run mechanical checks, and review factual support, citation coverage, reader intent, clarity and repetition.
 4. Revise only reported issues and recheck the result. Accepted sections and all review attempts remain in run history.
-5. Create a direct answer, takeaways, four FAQ answers, metadata and social copy from the completed article, then review them.
-6. Derive FAQ JSON-LD from the final FAQ, verify parity and references, and perform a final coverage/continuity review.
+5. Create a direct answer, takeaways, four FAQ answers, metadata and social copy from reviewed section summaries, then review them.
+6. Derive FAQ JSON-LD from the final FAQ, verify parity and references, and perform a final cross-section coverage review using the reviewed section summaries and extras.
 
 This adapts the supplied AIO Content Studio's article pipeline. It does not migrate its full application, competitor crawling, account storage or publishing integrations. Coaching and combined editorial/SEO review run inside the workflow; they are not hard-coded plugin roles. The FAQ is also a compact answer bank. Schema describes visible FAQ content; it does not promise eligibility for a search feature.
 
@@ -17,7 +17,9 @@ This adapts the supplied AIO Content Studio's article pipeline. It does not migr
 
 **Article settings and context** holds audience, language, style, verified client facts, revision limit, word tolerance and forbidden phrases. Those are workflow configuration, not global editorial policy. Do not put secrets in an exported workflow. Agent nodes hold editable primary and ordered fallback models and their allowed locations. The supplied model choices are defaults, not a promise that providers are online.
 
-Each artifact receives an initial review and at most two revisions. Change `revision_limit` to 0, 1 or 2; increasing it further requires deliberately adjusting the loop's maximum iterations and overall budgets. Code-check failures cannot be waived by a reviewer saying PASS. Minor word-count and metadata-length findings are warnings. The final report discloses actual counts; it never pads or silently trims prose. Extras are additional to the body target.
+Review/revision prompts send the current artifact, relevant evidence and outstanding issues; full review history stays in the run record. Each section reviewer also produces a short cited summary. Extras and the final cross-section check use those summaries so long articles fit network models with 4096-token context windows. Every full section is reviewed before summarization.
+
+Each artifact receives an initial review and at most two revisions. Change `revision_limit` to 0, 1 or 2; increasing it further requires deliberately adjusting the loop's maximum iterations and overall budgets. Code-check failures cannot be waived by a reviewer saying PASS. Minor word-count and metadata-length findings are warnings. A CHANGE_REQUEST containing only warnings is advisory; BLOCKER, empty change requests and error findings require revision. The final report discloses actual counts; it never pads or silently trims prose. Extras are additional to the body target.
 
 A completed run can deliver **Needs review**. This means a draft exists but one or more required checks or reviewer verdicts remain unresolved. It is not publication approval. The result includes remaining issues; full decisions and previous drafts are in the relevant step inputs and outputs. Final coverage findings are reported for review, not silently expanded into another unbounded rewrite loop. Nothing publishes automatically.
 

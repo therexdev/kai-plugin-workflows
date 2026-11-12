@@ -18,14 +18,17 @@ function relevant(value, topic) {
   return anchors.some(w => found.has(w));
 }
 
-async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup, maxPages = 3, topic = "", sourceUrls = [] } = {}) {
+async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup, maxPages = 3, topic = "", sourceUrls = [], timeoutMs = 90000 } = {}) {
   query = String(query || "").trim();
   topic = String(topic || "").trim().slice(0, 240);
   if (!query || query.length > 400) throw new CompanionError("Enter a web research query of 1–400 characters.");
   const check = () => { signal?.throwIfAborted(); if (privacyMode() === "local-only") throw new CompanionError("Local-Only blocks web research."); };
   if (!Array.isArray(sourceUrls) || sourceUrls.length > 10 || sourceUrls.some(u => typeof u !== "string" || u.length > 2000)) throw new CompanionError("Use at most ten public source URLs.");
   check();
-  const controller = new AbortController(), combined = AbortSignal.any([...(signal ? [signal] : []), controller.signal, AbortSignal.timeout(60000)]);
+  const controller = new AbortController(), deadline = AbortSignal.timeout(timeoutMs), combined = AbortSignal.any([...(signal ? [signal] : []), controller.signal, deadline]);
+  const searches = [], sources = [], seen = new Set(), limit = Math.max(1, Math.min(5, Number(maxPages) || 3));
+  let provider = "none";
+  const result = () => ({ query, topic, provider, searches, retrievedAt: new Date().toISOString(), sources });
   const timer = setInterval(() => { if (privacyMode() === "local-only") controller.abort(); }, 100); timer.unref?.();
   // The bundled search helper uses fixed providers. Bound every response and
   // pin public DNS, including each page redirect. Never send account headers.
@@ -40,12 +43,10 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
     return new Response(Buffer.concat(parts), { status: response.status, headers: response.headers });
   };
   try {
-    const searches = [], sources = [], seen = new Set(), limit = Math.max(1, Math.min(5, Number(maxPages) || 3));
     // Keep the full question first. Some providers return an empty result set
     // for natural-language questions; try topic terms only as a last resort.
     const terms = words(topic || query).slice(0, 8).join(" ");
     const queries = [...new Set([topic ? focusedQuery(query, topic) : query, ...(topic ? [focusedQuery(topic)] : []), ...(terms ? [terms] : [])])];
-    let provider = "none";
     // Explicit references are read through the same DNS, redirect, byte and
     // topic checks as search discoveries. They are never treated as evidence
     // until their actual page text was retrieved.
@@ -67,24 +68,38 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
         if (!keep) rejected++; return keep;
       } }); check(); combined.throwIfAborted();
       provider = result.source; searches.push({ query: searchQuery, provider, rejected });
-      for (const candidate of result.results) {
-        if (seen.size >= 10) break;
-        if (seen.has(candidate.url)) continue; seen.add(candidate.url);
-        check(); combined.throwIfAborted();
-        try {
-          const page = await fetchPage(candidate.url, { fetchImpl: safeFetch, lookup, maxChars: 2200 });
-          if (topic && !relevant(page.title + " " + page.text, topic)) { searches.at(-1).rejected++; continue; }
-          sources.push({ ...candidate, ...page, read: true, excerpt: true });
-        } catch {
+      // Read independent pages in small batches. A slow destination must not
+      // consume the entire research budget before other evidence is attempted.
+      const candidates = result.results.filter(candidate => {
+        if (seen.has(candidate.url) || seen.size >= 10) return false;
+        seen.add(candidate.url); return true;
+      });
+      for (let offset = 0; offset < candidates.length; offset += 3) {
+        const batch = candidates.slice(offset, offset + 3);
+        await Promise.all(batch.map(async candidate => {
           check(); combined.throwIfAborted();
-          sources.push({ ...candidate, read: false, text: "", note: "Page unavailable; snippet is discovery only, not verified evidence." });
-        }
-        if (sources.filter(s => s.read).length >= limit || seen.size >= 10) break;
+          try {
+            const page = await fetchPage(candidate.url, { fetchImpl: safeFetch, lookup, maxChars: 2200 });
+            if (topic && !relevant(page.title + " " + page.text, topic)) { searches.at(-1).rejected++; return; }
+            if (sources.filter(s => s.read).length < limit) sources.push({ ...candidate, ...page, read: true, excerpt: true });
+          } catch {
+            check(); combined.throwIfAborted();
+            sources.push({ ...candidate, read: false, text: "", note: "Page unavailable; snippet is discovery only, not verified evidence." });
+          }
+        }));
+        if (sources.filter(s => s.read).length >= limit) break;
       }
       if (sources.some(s => s.read)) break;
     }
     if (!sources.some(s => s.read)) throw new CompanionError(topic ? "No readable sources matching the topic were retrieved. Unrelated search results were excluded; use a more specific topic." : "No readable sources were retrieved. Try a more specific topic or run again; no researched article was generated.");
-    return { query, topic, provider, searches, retrievedAt: new Date().toISOString(), sources };
-  } finally { clearInterval(timer); }
+    return result();
+  } catch (error) {
+    // Preserve evidence already read when only the research deadline expires.
+    // Explicit cancellation and Local-Only always win over partial results.
+    check();
+    if (!deadline.aborted || controller.signal.aborted) throw error;
+    if (sources.some(s => s.read)) return { ...result(), note: "Research time limit reached; using the verified pages already read." };
+    throw new CompanionError("Web research reached its time limit before any source could be read. Supply public reference URLs or retry failed work when search is reachable.");
+  } finally { controller.abort(); clearInterval(timer); }
 }
 module.exports = { research, focusedQuery, relevant };

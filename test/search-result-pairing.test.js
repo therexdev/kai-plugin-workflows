@@ -16,3 +16,7 @@ test("search snippets stay with their titles when ads are skipped or a result ha
   const result = parseDdgHtml(html);
   assert.deepEqual(result.map(r => [r.title, r.snippet]), [["OpenAI", "Research and deployment"], ["Gemini", ""], ["IBM AI", "AI technology explained"]]);
 });
+test("lightweight search preserves titles, snippets and decoded target URLs",()=>{
+ const result=parseDdgHtml('<a class="result-link" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fevidence.example%2Fai">AI evidence</a><td class="result-snippet">Verified topic description</td>');
+ assert.deepEqual(result,[{title:"AI evidence",url:"https://evidence.example/ai",snippet:"Verified topic description"}]);
+});

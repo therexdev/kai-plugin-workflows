@@ -18,11 +18,12 @@ function relevant(value, topic) {
   return anchors.some(w => found.has(w));
 }
 
-async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup, maxPages = 3, topic = "" } = {}) {
+async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup, maxPages = 3, topic = "", sourceUrls = [] } = {}) {
   query = String(query || "").trim();
   topic = String(topic || "").trim().slice(0, 240);
   if (!query || query.length > 400) throw new CompanionError("Enter a web research query of 1–400 characters.");
   const check = () => { signal?.throwIfAborted(); if (privacyMode() === "local-only") throw new CompanionError("Local-Only blocks web research."); };
+  if (!Array.isArray(sourceUrls) || sourceUrls.length > 10 || sourceUrls.some(u => typeof u !== "string" || u.length > 2000)) throw new CompanionError("Use at most ten public source URLs.");
   check();
   const controller = new AbortController(), combined = AbortSignal.any([...(signal ? [signal] : []), controller.signal, AbortSignal.timeout(60000)]);
   const timer = setInterval(() => { if (privacyMode() === "local-only") controller.abort(); }, 100); timer.unref?.();
@@ -40,9 +41,26 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
   };
   try {
     const searches = [], sources = [], seen = new Set(), limit = Math.max(1, Math.min(5, Number(maxPages) || 3));
-    const queries = [...new Set([topic ? focusedQuery(query, topic) : query, ...(topic ? [focusedQuery(topic)] : [])])];
+    // Keep the full question first. Some providers return an empty result set
+    // for natural-language questions; try topic terms only as a last resort.
+    const terms = words(topic || query).slice(0, 8).join(" ");
+    const queries = [...new Set([topic ? focusedQuery(query, topic) : query, ...(topic ? [focusedQuery(topic)] : []), ...(terms ? [terms] : [])])];
     let provider = "none";
+    // Explicit references are read through the same DNS, redirect, byte and
+    // topic checks as search discoveries. They are never treated as evidence
+    // until their actual page text was retrieved.
+    for (const url of [...new Set(sourceUrls)]) {
+      if (sources.filter(s => s.read).length >= limit) break;
+      seen.add(url);
+      try {
+        const page = await fetchPage(url, { fetchImpl: safeFetch, lookup, maxChars: 2200 });
+        if (topic && !relevant(page.title + " " + page.text, topic)) continue;
+        sources.push({ url, ...page, read: true, excerpt: true, provided: true });
+      } catch { check(); combined.throwIfAborted(); }
+    }
+    if (sources.some(s => s.read)) provider = "provided";
     for (const searchQuery of queries) {
+      if (sources.filter(s => s.read).length >= limit) break;
       let rejected = 0;
       const result = await searchWeb(searchQuery, { fetchImpl: safeFetch, acceptResult: candidate => {
         const keep = !topic || relevant(candidate.title + " " + candidate.snippet, topic);

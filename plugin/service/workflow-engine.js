@@ -281,10 +281,10 @@ function createClass(Base) { return class GraphWorkflows extends Base {
         }
       }
       for (let turn = turns.length; turn < max; turn++) {
-        const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`.slice(0, 16000);
+        const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`;
         answer = await this.runLocal({ ...policy, prompt, runId: key, stepKey: token, attemptStartedAt: this.get(key).steps.find(s => s.token === token && s.status === "running")?.at,
           workflowName: this.get(key).name, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations,
-          outputFormat: c.outputFormat, outputSchema, maxFormatRepairs: c.maxFormatRepairs, allowToolCall: tools.length > 0,
+          outputFormat: c.outputFormat, outputSchema, maxFormatRepairs: c.maxFormatRepairs, continuationMode: c.continuationMode, allowToolCall: tools.length > 0,
           timeoutSeconds: c.timeoutSeconds, signal });
         let call; try { call = JSON.parse(answer).tool; } catch { /* final prose */ }
         if (!call) return main(V.envelope(answer));
@@ -296,8 +296,18 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     }
     if (n.type === "tool_call" || n.type === "http_request" && c.connectionId) return main(V.envelope(await this.connections.execute(prepared.request, signal)));
     if (n.type === "http_request") return main(await this.http(prepared.request, signal));
-    if (n.type === "web_research") return main(await require("./workflow-research").research(await resolve(c.query), { signal, privacyMode: this.privacyMode, fetchImpl: this.fetch, lookup: this.lookup, maxPages: c.maxPages, topic: await resolve(c.topic || "") }));
+    if (n.type === "web_research") return main(await require("./workflow-research").research(await resolve(c.query), { signal, privacyMode: this.privacyMode, fetchImpl: this.fetch, lookup: this.lookup, maxPages: c.maxPages, topic: await resolve(c.topic || ""), sourceUrls: await resolve(c.sourceUrls || []) }));
     if (n.type === "code") return main(await V.evaluate(c.source, scope, signal, false));
+    if (n.type === "quality_check") {
+      const Quality = require("../workflow-quality"), out = [];
+      for (const item of scope.items) {
+        const context = { ...scope, item }, value = await V.resolve(c.value, context, signal), rules = await V.resolve(c.rules, context, signal);
+        let report; try { report = Quality.inspect(value, rules); } catch (e) { throw new CompanionError(e.message); }
+        if (!report.valid && c.onFailure === "stop") throw new CompanionError("Quality Check: " + report.issues.filter(i => i.severity === "error").map(i => i.message).join(" "));
+        out.push({ ...item, [c.resultField]: report });
+      }
+      return main(out);
+    }
     if (n.type === "transform") return main(await Promise.all(scope.items.map(async item => ({ ...(c.keepFields ? item : {}), ...await V.resolve(c.set || {}, { ...scope, item }, signal) }))));
     if (n.type === "condition") {
       const out = { true: [], false: [] }; for (const item of scope.items) { const a = await V.resolve(c.expression, { ...scope, item }, signal), b = await V.resolve(c.value, { ...scope, item }, signal); const result = ({ truthy: () => !!a, equals: () => V.string(a) === V.string(b), contains: () => V.string(a).toLowerCase().includes(V.string(b).toLowerCase()), greater: () => Number(a) > Number(b), less: () => Number(a) < Number(b), empty: () => a == null || a === "" || Array.isArray(a) && !a.length })[c.operator || "truthy"]; if (!result) throw new CompanionError("Unknown condition operator."); out[String(result())].push(item); } return out;

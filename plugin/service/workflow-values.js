@@ -1,7 +1,7 @@
 "use strict";
 const { CompanionError, copy } = require("./companion-store");
 const { getQuickJS } = require("quickjs-emscripten");
-const LIMIT = 200000;
+const LIMIT = 200000, SCOPE_LIMIT = 2 * 1024 * 1024;
 const string = value => typeof value === "string" ? value : JSON.stringify(value ?? null);
 function bounded(value) { const s = JSON.stringify(value); if (!s || s.length > LIMIT) throw new CompanionError("Node output exceeds 200 KB. Filter or split the input."); return JSON.parse(s); }
 function items(value) { const list = Array.isArray(value) ? value : [value]; if (list.length > 100) throw new CompanionError("A node may emit at most 100 items."); return bounded(list.map(v => v && typeof v === "object" && !Array.isArray(v) ? v : { json: v, text: string(v) })); }
@@ -10,12 +10,15 @@ async function evaluate(source, scope, signal, expression = true) {
   signal?.throwIfAborted();
   if (typeof source !== "string" || source.length > 16000) throw new CompanionError("Code or expression exceeds 16 KB.");
   const QuickJS = await getQuickJS(), runtime = QuickJS.newRuntime(), deadline = Date.now() + (expression ? 100 : 750);
-  runtime.setMemoryLimit(16 * 1024 * 1024); runtime.setMaxStackSize(256 * 1024); runtime.setInterruptHandler(() => Date.now() > deadline || signal?.aborted);
+  runtime.setMemoryLimit(64 * 1024 * 1024); runtime.setMaxStackSize(256 * 1024); runtime.setInterruptHandler(() => Date.now() > deadline || signal?.aborted);
   const vm = runtime.newContext();
   try {
     // Only a JSON copy crosses into WASM. No host functions, modules, filesystem,
     // environment, network or Node objects are exposed to user/model code.
-    const data = JSON.stringify(bounded(scope));
+    // Earlier node outputs are repeated in the expression scope. Bound that
+    // aggregate separately; individual inputs/outputs still use the 200 KB cap.
+    const data = JSON.stringify(scope);
+    if (!data || data.length > SCOPE_LIMIT) throw new CompanionError("Expression context exceeds 2 MB. Split this workflow into smaller frames.");
     const program = `"use strict";const {item,items,input,nodes,iteration}=JSON.parse(${JSON.stringify(data)});const result=(()=>{${expression ? "return (" + source + ");" : source}\n})();const encoded=JSON.stringify(result===undefined?null:result);if(encoded.length>${LIMIT})throw Error("Output exceeds 200 KB");encoded;`;
     const result = vm.evalCode(program, "kai-workflow.js");
     if (result.error) { const e = vm.dump(result.error); result.error.dispose(); throw new CompanionError("Expression or code failed: " + String(e.message || "Check the script").slice(0, 240)); }

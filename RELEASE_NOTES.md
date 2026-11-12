@@ -1,3 +1,11 @@
+# Workflows 0.3.15
+
+Fixes the reported complete five-section outline that failed three times because its final `points` array omitted a closing `]`. JSON Agents now attempt a bounded local punctuation correction before asking the model to regenerate. It inserts missing container closers only where an existing outer closer identifies the boundary, then parses and validates the full configured schema. It does not invent sections, values or string endings, complete a truncated tail, or repair tool arguments. Original model responses and paid receipts remain unchanged in Model results; successful corrections are labeled. Existing token, continuation and model-repair limits remain in effect.
+
+**Retry failed work** can recover an already saved output rejected for JSON formatting, validate it, and continue without another outline generation. It only reuses results attributed to that failed step and attempt. Older runs require a non-overlapping model-attempt time window; uncertain or ambiguous matches use the normal reviewed retry path. Completed research stays saved, previous failures stay visible, and downstream model work can still use credits. No reimport is needed. Core **0.7.28+** remains the minimum; this update does not require a newer Core release.
+
+Search queries retain the original question instead of reducing “How does AI work?” to “ai”. Section details are bounded and appended to that question. DuckDuckGo descriptions now stay with their own result titles when ads are skipped or a result has no snippet. Source-topic filtering and readable-page checks remain active; these do not guarantee factual accuracy.
+
 # Workflows 0.3.14
 
 Requires **KAI Core 0.7.28+**. Update Core and restart it first, then update Workflows from the in-app catalog. Core 0.7.28 removes the independent three-minute plugin API cutoff for model calls. Workflows now supports 5–600 seconds per model reply and defaults new Agent nodes to ten minutes. Recognized article workflow agents using the previous 180-second default upgrade to 600 seconds; custom timeouts and model order are preserved. Continuations remain bounded by the existing 15-minute response and token budgets.

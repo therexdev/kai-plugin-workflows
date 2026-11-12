@@ -67,13 +67,50 @@
     return object(a) && object(b) && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => Object.hasOwn(b, k) && equal(a[k], b[k]));
   }
   const unfence = text => text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  // Insert only a missing container closer when a later, existing closer proves
+  // where that container ends. Never complete EOF, strings, values or fields.
+  // The repaired document must still parse and satisfy the entire schema.
+  function closeContainers(raw) {
+    if (raw.length > 200000 || !/^[{[]/.test(raw)) return null;
+    const stack = [], edits = []; let quoted = false, escaped = false, output = "";
+    for (let offset = 0; offset < raw.length; offset++) {
+      const c = raw[offset];
+      if (quoted) { if (escaped) escaped = false; else if (c === "\\") escaped = true; else if (c === '"') quoted = false; }
+      else if (c === '"') quoted = true;
+      else if (c === "{" || c === "[") { stack.push(c); if (stack.length > 64) return null; }
+      else if (c === "}" || c === "]") {
+        const expected = c === "}" ? "{" : "[";
+        if (!stack.includes(expected)) return null;
+        while (stack.at(-1) !== expected) {
+          if (edits.length >= 8) return null;
+          const insert = stack.pop() === "[" ? "]" : "}";
+          edits.push({ offset, insert }); output += insert;
+        }
+        stack.pop();
+      }
+      output += c;
+    }
+    return !quoted && !stack.length && edits.length ? { text: output, edits } : null;
+  }
   function inspect(text, schema = {}, allowToolCall = false) {
     const raw = unfence(text);
-    let value;
+    let value, recovery;
     try { value = JSON.parse(raw); }
-    catch { return { valid: false, incomplete: unfinished(raw), error: "The response is not complete, valid JSON." }; }
+    catch {
+      const repaired = closeContainers(raw);
+      if (repaired) {
+        try {
+          const candidate = JSON.parse(repaired.text);
+          // Tool arguments are not silently repaired, even for read tools.
+          if (!(allowToolCall && object(candidate?.tool)) && !validate(candidate, schema)) {
+            value = candidate; recovery = { kind: "missing-container-closers", edits: repaired.edits };
+          }
+        } catch { /* Continue or request a bounded model repair below. */ }
+      }
+      if (!recovery) return { valid: false, incomplete: unfinished(raw), error: "The response is not complete, valid JSON." };
+    }
     const error = allowToolCall && object(value?.tool) ? "" : validate(value, schema);
-    return { valid: !error, incomplete: false, error, value, text: JSON.stringify(value) };
+    return { valid: !error, incomplete: false, error, value, text: JSON.stringify(value), ...(recovery ? { recovery } : {}) };
   }
   function unfinished(raw) {
     if (!/^[{[\"]/.test(raw)) return false;

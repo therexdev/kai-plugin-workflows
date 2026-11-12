@@ -276,14 +276,12 @@ async function pageText(response) {
 /** DuckDuckGo HTML results — anchors carry a /l/?uddg=<encoded> redirect. */
 function parseDdgHtml(html) {
   const out = [];
-  const linkRe = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
-  const snippetRe = /<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>|<div[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
-  const snippets = [];
-  let sm;
-  while ((sm = snippetRe.exec(html)) !== null) snippets.push(stripTags(sm[1] || sm[2] || ""));
-  let m;
-  while ((m = linkRe.exec(html)) !== null && out.length < MAX_RESULTS) {
-    let url = unescapeHtml(m[1]);
+  const linkRe = /<a\b([^>]*\bclass=["'][^"']*\bresult__a\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi;
+  const links = [...String(html).matchAll(linkRe)];
+  for (let i = 0; i < links.length && out.length < MAX_RESULTS; i++) {
+    const m = links[i], href = m[1].match(/\bhref=["']([^"']+)["']/i);
+    if (!href) continue;
+    let url = unescapeHtml(href[1]);
     const uddg = url.match(/[?&]uddg=([^&]+)/);
     if (uddg) {
       try {
@@ -294,7 +292,11 @@ function parseDdgHtml(html) {
     }
     if (url.startsWith("//")) url = "https:" + url;
     if (!isPublicHttpUrl(url) || isSearchProviderTrackingUrl(url)) continue;
-    out.push({ title: stripTags(m[2]).slice(0, 120), url: url.slice(0, 500), snippet: (snippets[out.length] || "").slice(0, 300) });
+    // Keep each description with its own title, including when an ad/tracker
+    // is skipped or a result has no snippet. Global indices shift those pairs.
+    const segment = html.slice(m.index + m[0].length, links[i + 1]?.index ?? html.length);
+    const snippet = segment.match(/<(?:a|div|span)\b[^>]*\bclass=["'][^"']*\bresult__snippet\b[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|div|span)>/i);
+    out.push({ title: stripTags(m[2]).slice(0, 120), url: url.slice(0, 500), snippet: stripTags(snippet?.[1] || "").slice(0, 300) });
   }
   return out;
 }

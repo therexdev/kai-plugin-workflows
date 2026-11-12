@@ -29,20 +29,20 @@ test("section research excludes the reported DOES/grammar results and tries the 
   } });
   assert.equal(result.provider, "bing"); assert.equal(result.sources.length, 1); assert.equal(result.sources[0].read, true);
   assert.equal(result.searches[0].rejected, 2); assert.ok(!visited.some(u => /does.dc.gov|eslteacher.org/.test(u)));
-  assert.match(result.searches[0].query, /^ai /); assert.doesNotMatch(result.searches[0].query, /\bdoes\b/);
-  assert.ok(focusedQuery("long instructions ".repeat(40), "How does AI work?").split(" ").length <= 12);
+  assert.match(result.searches[0].query, /^How does AI work\?/);
+  assert.ok(focusedQuery("long instructions ".repeat(40), "How does AI work?").length <= 240);
 });
 
 test("an irrelevant fetched page is excluded and the shorter topic query recovers evidence", async () => {
   const searches = [];
   const result = await research("How does AI work? Training datasets", { topic: "How does AI work?", privacyMode: () => "network", lookup, fetchImpl: async url => {
     if (url.includes("duckduckgo.com")) return new Response("");
-    if (url.includes("bing.com")) { const q = new URL(url).searchParams.get("q"); searches.push(q); return new Response(rss("AI training", "https://evidence.example/" + (q === "ai" ? "correct" : "irrelevant"))); }
+    if (url.includes("bing.com")) { const q = new URL(url).searchParams.get("q"); searches.push(q); return new Response(rss("AI training", "https://evidence.example/" + (q === "How does AI work?" ? "correct" : "irrelevant"))); }
     if (url.endsWith("/irrelevant")) return page("Do versus does English grammar");
     if (url.endsWith("/correct")) return page("AI learns patterns from data");
     throw Error("Unexpected destination");
   } });
-  assert.equal(searches.length, 2); assert.equal(searches[1], "ai");
+  assert.equal(searches.length, 2); assert.equal(searches[1], "How does AI work?");
   assert.equal(result.sources.length, 1); assert.ok(result.sources[0].url.endsWith("/correct"));
   assert.equal(result.searches[0].rejected, 1);
 });

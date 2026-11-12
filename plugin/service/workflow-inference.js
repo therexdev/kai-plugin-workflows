@@ -79,28 +79,31 @@ function createInference(api, recordResult) {
       active(api, signal);
       const choice = completion?.choices?.[0], chunk = choice?.message?.content;
       if (typeof chunk !== "string") throw new CompanionError(result?.message || "The model returned no text.");
+      answer += chunk;
+      let checked;
+      if (json) {
+        checked = Output.inspect(answer, schema, options.allowToolCall);
+        // Providers sometimes restart a continuation. A replacement must
+        // independently satisfy the same complete output contract.
+        if (!checked.valid && purpose === "continue") {
+          const replacement = Output.inspect(chunk, schema, options.allowToolCall);
+          if (replacement.valid) checked = replacement;
+        }
+      }
       // Save every accepted part before acknowledging a paid network delivery.
       await recordResult({ model: chosen.alias, source: chosen.source, requestedModel: options.model, modelSource: options.modelSource,
-        modelPreference: options.modelPreference, fallbackModels: options.fallbackModels, part, purpose, completion, at: Date.now() }, options.runId);
+        modelPreference: options.modelPreference, fallbackModels: options.fallbackModels, part, purpose, completion, at: Date.now(),
+        stepKey: options.stepKey, attemptStartedAt: options.attemptStartedAt, ...(checked?.recovery ? { outputRecovery: checked.recovery } : {}) }, options.runId);
       if (chosen.source === "network" && typeof completion.id === "string" && /^[a-f0-9]{64}$/.test(completion.id)) {
         try { await api.wallet.authorize("chat-ack", completion.id, signal); }
         catch { /* Core retains its recoverable answer; this plugin already saved it. */ }
       }
       active(api, signal);
-      answer += chunk;
-      let checked;
       if (json) {
-        checked = Output.inspect(answer, schema, options.allowToolCall);
-        // Some providers restart instead of continuing. Accept a replacement
-        // only if it independently satisfies the entire output contract.
-        if (!checked.valid && purpose === "continue") {
-          const replacement = Output.inspect(chunk, schema, options.allowToolCall);
-          if (replacement.valid) checked = replacement;
-        }
         if (checked.valid) return checked.text;
       } else if (choice.finish_reason !== "length") return answer;
       remaining -= Number.isInteger(completion.usage?.completion_tokens) && completion.usage.completion_tokens > 0 ? completion.usage.completion_tokens : request.max_tokens;
-      const savedNotice = " Partial text is saved in Model results. Increase the relevant limit or shorten this step before starting a new run.";
+      const savedNotice = " Partial text is saved in Model results. Review this step's output settings." + (options.runId ? " Use Retry failed work to keep completed steps." : " Adjust the relevant limit or shorten the task before trying again.");
       if (json) {
         const issue = "The model did not return JSON matching the required output. " + checked.error;
         if (remaining <= 0) throw new CompanionError(issue + ` The ${budget}-token output budget is exhausted.` + savedNotice);

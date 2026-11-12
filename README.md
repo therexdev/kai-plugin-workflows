@@ -67,3 +67,9 @@ With Workflows 0.3.14 and Core 0.7.28, each Agent reply can wait 5–600 seconds
 Use **Retry failed work** on an eligible failed run to preserve completed sections and restart the failed model or web research step. Its private source-reading chain is refreshed when safe. Review is explicit because a timed-out request may require recovery or another paid generation. Old attempts and accepted model parts remain in history. **Run again** starts over. Runs with uncertain in-flight work or failed external writes require their existing recovery path.
 
 Web research can specify **Required source topic (optional)**. Topic keywords anchor a concise search and filter search results and read excerpts; an unsuccessful section query falls back to the shorter topic query. No readable matching evidence produces a clear research error. This heuristic helps remove off-topic results, but does not validate claims. The article example uses the original topic and section heading automatically.
+
+## Local JSON correction and saved output recovery
+
+Workflows 0.3.15 corrects up to eight missing JSON container closers where an existing closing bracket or brace establishes the boundary. It changes punctuation only, then requires parsing and the complete output schema to pass. Truncated strings/tails, missing data, incorrect section counts, and tool arguments are never filled in. Original replies and receipts remain visible; a note identifies a local correction without another paid model call.
+
+On **Retry failed work**, a JSON Agent without selected tools can reuse its saved failed-attempt output when the corrected response validates. New results carry exact step/attempt identifiers. Older results require an unambiguous time window with no overlapping model step. The recovered step is labeled; future steps still run normally and may use credits. Unknown network outcomes and unrelated/ambiguous results are not reused. Existing retry review and credit permissions apply.

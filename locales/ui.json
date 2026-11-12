@@ -443,7 +443,11 @@
     "Network: Refresh to check": "Red: Actualiza para comprobar",
     "JSON schema (optional)": "Esquema JSON (opcional)",
     "Maximum JSON repairs": "Máximo de correcciones JSON",
-    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "El JSON se valida antes del siguiente paso. Las continuaciones y correcciones comparten el límite de tokens de salida y pueden usar créditos."
+    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "El JSON se valida antes del siguiente paso. Las continuaciones y correcciones comparten el límite de tokens de salida y pueden usar créditos.",
+    "Retry failed work": "Reintentar trabajo fallido",
+    "Required source topic (optional)": "Tema requerido de las fuentes (opcional)",
+    "Model reply timeout (5–600 seconds)": "Tiempo de espera de respuesta del modelo (5–600 segundos)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Cada respuesta de la red tiene su propio tiempo límite. Las continuaciones pueden durar hasta 15 minutos en total. Las partes completadas se guardan en Resultados del modelo."
   },
   "pt-BR": {
     ", and": ", e",
@@ -889,7 +893,11 @@
     "Network: Refresh to check": "Rede: Atualize para verificar",
     "JSON schema (optional)": "Esquema JSON (opcional)",
     "Maximum JSON repairs": "Máximo de correções JSON",
-    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "O JSON é validado antes da próxima etapa. Continuações e correções compartilham o limite de tokens de saída e podem usar créditos."
+    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "O JSON é validado antes da próxima etapa. Continuações e correções compartilham o limite de tokens de saída e podem usar créditos.",
+    "Retry failed work": "Tentar novamente o trabalho que falhou",
+    "Required source topic (optional)": "Tema exigido das fontes (opcional)",
+    "Model reply timeout (5–600 seconds)": "Tempo limite de resposta do modelo (5–600 segundos)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Cada resposta da rede tem seu próprio tempo limite. As continuações podem durar até 15 minutos no total. As partes concluídas são salvas em Resultados do modelo."
   },
   "fr": {
     ", and": ", et",
@@ -1335,7 +1343,11 @@
     "Network: Refresh to check": "Réseau : Actualiser pour vérifier",
     "JSON schema (optional)": "Schéma JSON (facultatif)",
     "Maximum JSON repairs": "Nombre maximal de corrections JSON",
-    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "Le JSON est validé avant l’étape suivante. Les continuations et corrections partagent le budget de tokens de sortie et peuvent utiliser des crédits."
+    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "Le JSON est validé avant l’étape suivante. Les continuations et corrections partagent le budget de tokens de sortie et peuvent utiliser des crédits.",
+    "Retry failed work": "Réessayer le travail ayant échoué",
+    "Required source topic (optional)": "Sujet requis des sources (facultatif)",
+    "Model reply timeout (5–600 seconds)": "Délai de réponse du modèle (5–600 secondes)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Chaque réponse du réseau a son propre délai. Les continuations peuvent durer jusqu’à 15 minutes au total. Les parties terminées sont enregistrées dans les résultats du modèle."
   },
   "de": {
     ", and": "und",
@@ -1781,6 +1793,10 @@
     "Network: Refresh to check": "Netzwerk: Zum Prüfen aktualisieren",
     "JSON schema (optional)": "JSON-Schema (optional)",
     "Maximum JSON repairs": "Maximale JSON-Korrekturen",
-    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "JSON wird vor dem nächsten Schritt validiert. Fortsetzungen und Korrekturen teilen sich das Ausgabetokenbudget und können Credits verbrauchen."
+    "JSON is validated before the next step. Continuations and repairs share the output token budget and may use credits.": "JSON wird vor dem nächsten Schritt validiert. Fortsetzungen und Korrekturen teilen sich das Ausgabetokenbudget und können Credits verbrauchen.",
+    "Retry failed work": "Fehlgeschlagene Arbeit erneut versuchen",
+    "Required source topic (optional)": "Erforderliches Quellenthema (optional)",
+    "Model reply timeout (5–600 seconds)": "Zeitlimit für Modellantworten (5–600 Sekunden)",
+    "Each network reply gets its own timeout. Continuations can run for up to 15 minutes total. Completed parts are saved in Model results.": "Jede Netzwerkantwort hat ein eigenes Zeitlimit. Fortsetzungen können insgesamt bis zu 15 Minuten dauern. Abgeschlossene Teile werden in den Modellergebnissen gespeichert."
   }
 }

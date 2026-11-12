@@ -22,7 +22,7 @@ function plan(graph) {
 }
 function normalize(input, draft = false) {
   const policy = Model.modelPolicy(input);
-  const graph = copy(input.graph); Model.migrateOutputs({ graph }); const report = Model.validateGraph(graph);
+  const graph = copy(input.graph); Model.migrateOutputs({ graph }); Model.migrateReliability({ graph }); const report = Model.validateGraph(graph);
   const errors = draft ? report.errors.filter(e => /unique letter|Unsupported node|must be an object|1–60|Add a workflow graph/.test(e.message)) : report.errors;
   if (errors.length) throw new CompanionError(errors.map(e => e.message).slice(0, 4).join(" "));
   if (JSON.stringify(graph).length > 150000) throw new CompanionError("Workflow exceeds 150 KB.");
@@ -31,7 +31,7 @@ function normalize(input, draft = false) {
     n.position = { x: Math.max(0, Math.min(6000, Number(n.position?.x) || 0)), y: Math.max(0, Math.min(12000, Number(n.position?.y) || 0)) };
     n.config.onError = ["stop", "continue", "route"].includes(n.config.onError) ? n.config.onError : "stop";
     n.config.retries = Math.max(0, Math.min(2, Number(n.config.retries) || 0));
-    n.config.timeoutSeconds = Math.max(5, Math.min(180, Number(n.config.timeoutSeconds) || 120));
+    n.config.timeoutSeconds = Math.max(5, Math.min(n.type === "agent" ? 600 : 180, Number(n.config.timeoutSeconds) || (n.type === "agent" ? 600 : 120)));
     if (n.type === "agent") Object.assign(n.config, Model.modelPolicy(n.config));
     if (n.type === "memory" && !["search", "recall", "people", "goals", "remember", "forget"].includes(n.config.operation)) throw new CompanionError("Choose a supported Brain operation.");
     if (!draft && n.type === "http_request" && !n.config.connectionId) {
@@ -84,6 +84,51 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     const w = this.store.data.workflows.find(w => w.id === key); if (!w) throw new CompanionError("Workflow no longer exists."); if (enabled && w.draft) throw new CompanionError("Review and save the draft before enabling it.");
     if (enabled && w.graph) this.checkReferences(w);
     return this.store.change(d => { const saved = d.workflows.find(x => x.id === key); saved.enabled = enabled === true; saved.nextRunAt = saved.enabled ? next(saved.schedule) : null; return saved; });
+  }
+  retryPlan(key) {
+    const run = this.get(key);
+    if (!Model.canRetryRun(run) || this.active.has(key)) throw new CompanionError("This run cannot safely retry a failed model or research step.");
+    if (this.active.size >= 2 || this.store.data.runs.some(r => r.id !== key && r.workflowId === run.workflowId && live(r))) throw new CompanionError("Finish the other active run before retrying this one.");
+    const reset = [], refreshed = [];
+    for (const [frameId, frame] of Object.entries(run.frames)) for (const [nodeId, state] of Object.entries(frame.states)) {
+      if (state.status !== "failed") continue;
+      reset.push({ frameId, nodeId, preserve: true });
+      if (frame.graph.nodes.find(n => n.id === nodeId)?.type !== "agent" || state.cursor > 0) continue;
+      // Refresh only a private, read-only chain feeding this failed agent.
+      // Never rewind another model, a shared branch or a completed write.
+      const chain = []; let current = nodeId;
+      for (;;) {
+        const edges = frame.graph.edges.filter(e => e.to === current);
+        if (edges.length !== 1) break;
+        const previous = frame.graph.nodes.find(n => n.id === edges[0].from), before = frame.states[previous?.id];
+        if (!previous || before?.status !== "completed" || frame.graph.edges.filter(e => e.from === previous.id).length !== 1 || !["code", "transform", "output_parser", "web_research"].includes(previous.type)) break;
+        chain.push({ frameId, nodeId: previous.id, preserve: false });
+        if (previous.type === "web_research") { reset.push(...chain); refreshed.push(previous.label); break; }
+        current = previous.id;
+      }
+    }
+    return { fingerprint: hash({ frames: run.frames, status: run.status, finishedAt: run.finishedAt }), reset, refreshed,
+      completedSteps: run.steps.filter(s => s.status === "completed").length };
+  }
+  retry(key, fingerprint) {
+    const prepared = this.retryPlan(key); if (prepared.fingerprint !== fingerprint) throw new CompanionError("Run changed during review. Open it and retry again.");
+    this.patch(key, r => {
+      const original = copy(r.spec), upgraded = copy(r.spec), changed = Model.migrateReliability(upgraded);
+      if (changed) {
+        for (const frame of Object.values(r.frames)) for (const n of frame.graph.nodes) {
+          const before = original.graph.nodes.find(x => x.id === n.id), after = upgraded.graph.nodes.find(x => x.id === n.id);
+          if (before && JSON.stringify(before.config) === JSON.stringify(n.config)) n.config = copy(after.config);
+        }
+        r.spec = upgraded;
+      }
+      (r.retryHistory ||= []).push({ at: Date.now(), error: r.error, refreshed: prepared.refreshed, ...(changed ? { previousSpec: original } : {}) });
+      for (const item of prepared.reset) {
+        const frame = r.frames[item.frameId], state = frame.states[item.nodeId]; frame.status = "running"; state.status = "pending";
+        if (!item.preserve) Object.assign(state, { cursor: 0, outputs: {}, turns: [] });
+      }
+      r.status = "running"; r.error = null; r.pending = null; delete r.finishedAt;
+    });
+    this.launch(key); return { id: key };
   }
   snapshot(w, seen = [], out = {}) {
     if (seen.includes(w.id) || seen.length >= 4) throw new CompanionError("Sub-workflows cannot recurse and may nest at most four levels.");
@@ -243,7 +288,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     }
     if (n.type === "tool_call" || n.type === "http_request" && c.connectionId) return main(V.envelope(await this.connections.execute(prepared.request, signal)));
     if (n.type === "http_request") return main(await this.http(prepared.request, signal));
-    if (n.type === "web_research") return main(await require("./workflow-research").research(await resolve(c.query), { signal, privacyMode: this.privacyMode, fetchImpl: this.fetch, lookup: this.lookup, maxPages: c.maxPages }));
+    if (n.type === "web_research") return main(await require("./workflow-research").research(await resolve(c.query), { signal, privacyMode: this.privacyMode, fetchImpl: this.fetch, lookup: this.lookup, maxPages: c.maxPages, topic: await resolve(c.topic || "") }));
     if (n.type === "code") return main(await V.evaluate(c.source, scope, signal, false));
     if (n.type === "transform") return main(await Promise.all(scope.items.map(async item => ({ ...(c.keepFields ? item : {}), ...await V.resolve(c.set || {}, { ...scope, item }, signal) }))));
     if (n.type === "condition") {

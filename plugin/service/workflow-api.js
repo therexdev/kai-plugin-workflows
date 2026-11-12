@@ -9,7 +9,7 @@ const ACTIONS = Object.freeze({
   status: "workflows.read", workflowModels: "workflows.read", workflowValidate: "workflows.read", workflowEventTypes: "workflows.read", exportWorkflow: "workflows.read",
   workflow: "workflows.write", workflowDraft: "workflows.write", importWorkflow: "workflows.write", removeWorkflow: "workflows.write",
   workflowEnabled: "workflows.run", workflowAssist: "workflows.run", workflowDiscoverySettings: "workflows.run", workflowDiscover: "workflows.run", workflowDismiss: "workflows.write",
-  workflowPreview: "workflows.run", workflowReject: "workflows.run", cancelRun: "workflows.run", resume: "workflows.run"
+  workflowPreview: "workflows.run", workflowReject: "workflows.run", cancelRun: "workflows.run", resume: "workflows.run", retryRun: "workflows.run"
 });
 const permissions = Object.freeze({ "workflows.copyText": "workflows.read", ...Object.fromEntries(Object.entries(ACTIONS).map(([key, value]) => ["workflows." + key, value])),
   ...Object.fromEntries(["list", "get", "runs", "runGet", "export", "agents"].map(key => ["workflows." + key, "workflows.read"])),

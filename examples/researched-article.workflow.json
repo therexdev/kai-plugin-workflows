@@ -3,7 +3,7 @@
   "version": 2,
   "workflow": {
     "name": "Researched article · KAI network",
-    "description": "Workflows 0.3.13+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Validated JSON outline with bounded recovery; editable primary and ordered fallback models; public web research; no QA stage or clarification questions. Core credit consent applies to network requests and continuations. Word count is a target; actual counts are reported without an editing pass.",
+    "description": "Workflows 0.3.14+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Validated JSON outline with bounded recovery; editable primary and ordered fallback models; public web research; no QA stage or clarification questions. Core credit consent applies to network requests and continuations. Word count is a target; actual counts are reported without an editing pass.",
     "model": "qwen25-32b",
     "modelSource": "network",
     "modelPreference": "network",
@@ -82,7 +82,8 @@
           "config": {
             "query": "{{nodes.brief.topic}}",
             "maxPages": 4,
-            "execution": "once"
+            "execution": "once",
+            "topic": "{{nodes.brief.topic}}"
           }
         },
         {
@@ -116,10 +117,10 @@
             ],
             "execution": "once",
             "maxTurns": 1,
+            "timeoutSeconds": 600,
             "tools": [],
             "maxTokens": 1000,
             "maxContinuations": 16,
-            "timeoutSeconds": 180,
             "retries": 0,
             "modelSource": "network",
             "modelPreference": "network"
@@ -151,10 +152,10 @@
             ],
             "execution": "once",
             "maxTurns": 1,
+            "timeoutSeconds": 600,
             "tools": [],
             "maxTokens": 2400,
             "maxContinuations": 16,
-            "timeoutSeconds": 180,
             "retries": 0,
             "modelSource": "network",
             "modelPreference": "network",
@@ -250,9 +251,10 @@
             "y": 1450
           },
           "config": {
-            "query": "{{item.search_query}}",
+            "query": "{{item.topic}} {{item.section.heading}}",
             "maxPages": 3,
-            "execution": "once"
+            "execution": "once",
+            "topic": "{{item.topic}}"
           }
         },
         {
@@ -299,10 +301,10 @@
             ],
             "execution": "once",
             "maxTurns": 1,
+            "timeoutSeconds": 600,
             "tools": [],
             "maxTokens": 950,
             "maxContinuations": 16,
-            "timeoutSeconds": 180,
             "retries": 0,
             "modelSource": "network",
             "modelPreference": "network"
@@ -339,10 +341,10 @@
             ],
             "execution": "once",
             "maxTurns": 1,
+            "timeoutSeconds": 600,
             "tools": [],
             "maxTokens": 1300,
             "maxContinuations": 16,
-            "timeoutSeconds": 180,
             "retries": 0,
             "modelSource": "network",
             "modelPreference": "network"

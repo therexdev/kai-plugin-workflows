@@ -2,8 +2,20 @@
 const { CompanionError } = require("./companion-store");
 const { searchWeb, fetchPage, assertPublicTarget, publicPageRequest } = require("./lib/websearch");
 
-async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup, maxPages = 3 } = {}) {
+const STOP = new Set("a an the and or of to in on for from with by at as is are was were be being been do does did how what why when where which who whom this that these those it its their them they our your can could should would will may might must have has had not no into about through between work works working explain describe discuss overview introduce introduction conclusion article section topic topics required requirement requirements provide brief briefly detail include including importance role understanding understand guide beginner beginners key use using".split(" "));
+const words = text => [...new Set((String(text).normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).filter(w => w.length > 1 && !STOP.has(w)))];
+function focusedQuery(query, topic = "") {
+  return [...new Set([...words(topic).slice(0, 8), ...words(query)])].slice(0, 12).join(" ").slice(0, 240) || query;
+}
+function relevant(value, topic) {
+  const anchors = words(topic); if (!anchors.length) return true;
+  const found = new Set(words(value));
+  return anchors.some(w => found.has(w));
+}
+
+async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup, maxPages = 3, topic = "" } = {}) {
   query = String(query || "").trim();
+  topic = String(topic || "").trim().slice(0, 240);
   if (!query || query.length > 400) throw new CompanionError("Enter a web research query of 1–400 characters.");
   const check = () => { signal?.throwIfAborted(); if (privacyMode() === "local-only") throw new CompanionError("Local-Only blocks web research."); };
   check();
@@ -22,20 +34,34 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
     return new Response(Buffer.concat(parts), { status: response.status, headers: response.headers });
   };
   try {
-    const result = await searchWeb(query, { fetchImpl: safeFetch }); check(); combined.throwIfAborted();
-    const sources = [];
-    for (const candidate of result.results.slice(0, Math.max(1, Math.min(5, Number(maxPages) || 3)))) {
-      check(); combined.throwIfAborted();
-      try {
-        const page = await fetchPage(candidate.url, { fetchImpl: safeFetch, lookup, maxChars: 2200 });
-        sources.push({ ...candidate, ...page, read: true, excerpt: true });
-      } catch {
+    const searches = [], sources = [], seen = new Set(), limit = Math.max(1, Math.min(5, Number(maxPages) || 3));
+    const queries = [...new Set([topic ? focusedQuery(query, topic) : query, ...(topic ? [focusedQuery(topic)] : [])])];
+    let provider = "none";
+    for (const searchQuery of queries) {
+      let rejected = 0;
+      const result = await searchWeb(searchQuery, { fetchImpl: safeFetch, acceptResult: candidate => {
+        const keep = !topic || relevant(candidate.title + " " + candidate.snippet, topic);
+        if (!keep) rejected++; return keep;
+      } }); check(); combined.throwIfAborted();
+      provider = result.source; searches.push({ query: searchQuery, provider, rejected });
+      for (const candidate of result.results) {
+        if (seen.size >= 10) break;
+        if (seen.has(candidate.url)) continue; seen.add(candidate.url);
         check(); combined.throwIfAborted();
-        sources.push({ ...candidate, read: false, text: "", note: "Page unavailable; snippet is discovery only, not verified evidence." });
+        try {
+          const page = await fetchPage(candidate.url, { fetchImpl: safeFetch, lookup, maxChars: 2200 });
+          if (topic && !relevant(page.title + " " + page.text, topic)) { searches.at(-1).rejected++; continue; }
+          sources.push({ ...candidate, ...page, read: true, excerpt: true });
+        } catch {
+          check(); combined.throwIfAborted();
+          sources.push({ ...candidate, read: false, text: "", note: "Page unavailable; snippet is discovery only, not verified evidence." });
+        }
+        if (sources.filter(s => s.read).length >= limit || seen.size >= 10) break;
       }
+      if (sources.some(s => s.read)) break;
     }
-    if (!sources.some(s => s.read)) throw new CompanionError("No readable sources were retrieved. Try a more specific topic or run again; no researched article was generated.");
-    return { query, provider: result.source, retrievedAt: new Date().toISOString(), sources };
+    if (!sources.some(s => s.read)) throw new CompanionError(topic ? "No readable sources matching the topic were retrieved. Unrelated search results were excluded; use a more specific topic." : "No readable sources were retrieved. Try a more specific topic or run again; no researched article was generated.");
+    return { query, topic, provider, searches, retrievedAt: new Date().toISOString(), sources };
   } finally { clearInterval(timer); }
 }
-module.exports = { research };
+module.exports = { research, focusedQuery, relevant };

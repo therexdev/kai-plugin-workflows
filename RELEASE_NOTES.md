@@ -1,3 +1,13 @@
+# Workflows 0.3.14
+
+Requires **KAI Core 0.7.28+**. Update Core and restart it first, then update Workflows from the in-app catalog. Core 0.7.28 removes the independent three-minute plugin API cutoff for model calls. Workflows now supports 5–600 seconds per model reply and defaults new Agent nodes to ten minutes. Recognized article workflow agents using the previous 180-second default upgrade to 600 seconds; custom timeouts and model order are preserved. Continuations remain bounded by the existing 15-minute response and token budgets.
+
+**Retry failed work** appears on eligible failed model/research runs. After explicit review, it keeps the completed outline, sections and other steps, resumes the failed step, and refreshes its private source-reading chain when safe. It does not restart completed model steps or writes. Historical attempts remain visible. A failed model step may need recovery or a new generation and additional credits; it is never retried automatically. Unknown in-flight work and failed external writes cannot use this control. **Run again** still starts a complete new run.
+
+Article section searches now use the topic and heading rather than long writing instructions. A configurable **Required source topic** excludes results and page excerpts without topic keywords, tries another provider when results are unrelated, and retries a shorter topic search when no readable evidence is found. This rejects the reported employment/English-grammar results for an AI article; keyword matching is a relevance filter, not factual verification. If no matching readable source is found, the research step stops clearly.
+
+Existing recognized article definitions receive these default fixes without reimporting. Retrying an old eligible run also updates its recognized defaults and retains its original specification in retry history. Provider outages, unavailable models and poor generated content can still prevent completion; saved work remains available.
+
 # Workflows 0.3.13
 
 Agent nodes now support **Output format → JSON**, an optional JSON schema, and up to two format repairs. A JSON step completes only after the response parses and matches its contract. Fenced JSON is normalized; incomplete JSON continues even when a provider reports `stop` or omits its finish reason. Wrong shapes receive bounded complete repairs. Every accepted raw response is saved before acknowledgment, and all recovery calls share the output token budget, continuation limit, model policy and Core credit consent. Uncertain requests and denied credit approval are not retried.

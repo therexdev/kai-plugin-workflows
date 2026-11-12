@@ -7,7 +7,7 @@ Requires Workflows 0.3.18 and Core 0.7.28 or later. Open **Templates → AIO res
 1. Read topic evidence and prepare a research/strategy brief.
 2. Plan a distinct angle, headings and requirements, then review and revise the outline.
 3. For each section, read sources, create an evidence-backed coaching card, draft prose, run mechanical checks, and review factual support, citation coverage, reader intent, clarity and repetition.
-4. Revise only reported issues and recheck the result. Accepted sections and all review attempts remain in run history.
+4. Revise only reported issues and recheck the result. Mechanical errors go straight to the reviser; semantic review runs after those checks pass. Accepted sections and all review attempts remain in run history.
 5. Create a direct answer, takeaways, four FAQ answers, metadata and social copy from reviewed section summaries, then review them.
 6. Derive FAQ JSON-LD from the final FAQ, verify parity and references, and perform a final cross-section coverage review using the reviewed section summaries and extras.
 
@@ -23,7 +23,7 @@ Each artifact receives an initial review and at most two revisions. Change `revi
 
 A completed run can deliver **Needs review**. This means a draft exists but one or more required checks or reviewer verdicts remain unresolved. It is not publication approval. The result includes remaining issues; full decisions and previous drafts are in the relevant step inputs and outputs. Final coverage findings are reported for review, not silently expanded into another unbounded rewrite loop. Nothing publishes automatically.
 
-The cited IDs must exist in the section's readable evidence. A code check proves identity/presence, not truth: the reviewer compares claims with source excerpts. Evidence gaps must remain explicit; neither the checker nor the model is allowed to fabricate a citation. Public search results and excerpts can be incomplete or unavailable.
+The workflow canonicalizes parenthesized source IDs such as `(S1-1)` into `[S1-1]` before validation, without adding claims or sources. Unknown IDs still fail validation. The cited IDs must exist in the section's readable evidence. A code check proves identity/presence, not truth: the reviewer compares claims with source excerpts. Evidence gaps must remain explicit; neither the checker nor the model is allowed to fabricate a citation. Public search results and excerpts can be incomplete or unavailable.
 
 ## Runtime and recovery
 

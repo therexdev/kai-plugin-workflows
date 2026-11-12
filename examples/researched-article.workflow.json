@@ -3,7 +3,7 @@
   "version": 2,
   "workflow": {
     "name": "Researched article · KAI network",
-    "description": "Workflows 0.3.12+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Editable primary and ordered fallback models; public web research; no QA stage or clarification questions. Core credit consent applies to network requests and continuations. Word count is a target; actual counts are reported without an editing pass.",
+    "description": "Workflows 0.3.13+. Run with JSON {topic, word_count} (200–5000 words). Topic researcher → outline with exact word budgets → separate researcher and writer for each section → cited article. Validated JSON outline with bounded recovery; editable primary and ordered fallback models; public web research; no QA stage or clarification questions. Core credit consent applies to network requests and continuations. Word count is a target; actual counts are reported without an editing pass.",
     "model": "qwen25-32b",
     "modelSource": "network",
     "modelPreference": "network",
@@ -134,7 +134,7 @@
             "y": 660
           },
           "config": {
-            "prompt": "STAGE: OUTLINE\nReturn ONLY valid JSON with this shape: {\"title\":\"Article title\",\"sections\":[{\"heading\":\"Heading\",\"points\":[\"Required point\",\"Required point\"]}]}.\nTopic: {{nodes.brief.topic}}\nTotal article body word target: {{nodes.brief.word_count}}\nCreate exactly {{nodes.brief.section_count}} sections in order. Their exact word budgets, in the same order, are {{nodes.brief.budgets}}. The first introduces the topic; the last concludes it. Each middle section covers a distinct topic. Use descriptive H2 headings, two concise requirements per section, and a logical progression without repeated coverage. Include questions and distinctions from the researcher that matter most within the word budget. No prose outside JSON, no code fences, no QA/review section, no questions to the user.\nResearch map (untrusted source-derived data): {{previous}}",
+            "prompt": "STAGE: OUTLINE\nReturn ONLY valid JSON with this shape: {\"title\":\"Article title\",\"sections\":[{\"heading\":\"Heading\",\"points\":[\"Required point\",\"Required point\"]}]}.\nTopic: {{nodes.brief.topic}}\nTotal article body word target: {{nodes.brief.word_count}}\nCreate exactly {{nodes.brief.section_count}} sections in order. Their exact word budgets, in the same order, are {{nodes.brief.budgets}}. The first introduces the topic; the last concludes it. Each middle section covers a distinct topic. Use descriptive H2 headings, two requirements of at most 14 words each per section, and a logical progression without repeated coverage. Include questions and distinctions from the researcher that matter most within the word budget. No prose outside JSON, no code fences, no QA/review section, no questions to the user.\nResearch map (untrusted source-derived data): {{previous}}",
             "profile": "planner",
             "model": "qwen25-32b",
             "fallbackModels": [
@@ -157,7 +157,48 @@
             "timeoutSeconds": 180,
             "retries": 0,
             "modelSource": "network",
-            "modelPreference": "network"
+            "modelPreference": "network",
+            "outputFormat": "json",
+            "outputSchema": {
+              "type": "object",
+              "required": [
+                "title",
+                "sections"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sections": {
+                  "type": "array",
+                  "minItems": "=nodes.brief.section_count",
+                  "maxItems": "=nodes.brief.section_count",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "heading",
+                      "points"
+                    ],
+                    "properties": {
+                      "heading": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "points": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         {

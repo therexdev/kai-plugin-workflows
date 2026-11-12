@@ -49,3 +49,10 @@ test("model and location controls export both preferences, fallback locations an
   w = await f.exported(); assert.equal(w.graph.nodes.at(-1).config.modelSource, "network");
   assert.equal(w.modelSource, "both");
 });
+test("agent JSON format and schema survive builder editing and export", async () => {
+  const f = fixture(); await f.click("edit", "flow"); await f.click("add", "agent");
+  f.select("config.outputFormat", "json");
+  assert.match(f.host.innerHTML, /JSON schema \(optional\)/); assert.match(f.host.innerHTML, /Maximum JSON repairs/);
+  const w = await f.exported(); assert.equal(w.graph.nodes.at(-1).config.outputFormat, "json");
+  f.select("config.outputFormat", "text"); assert.doesNotMatch(f.host.innerHTML, /Maximum JSON repairs/);
+});

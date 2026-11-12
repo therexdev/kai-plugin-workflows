@@ -273,9 +273,17 @@ function createClass(Base) { return class GraphWorkflows extends Base {
       const max = Math.max(1, Math.min(6, Number(c.maxTurns) || 3)), tools = (c.tools || []).slice(0, 8);
       const outputSchema = c.outputFormat === "json" ? await resolve(c.outputSchema ?? {}) : undefined;
       let turns = state().turns || [], answer;
+      if (c.outputFormat === "json" && !tools.length && !turns.length) {
+        const recovered = require("./workflow-output-cache").recoverSavedJSON(this.get(key), token, outputSchema);
+        if (recovered) {
+          this.patch(key, r => { const step = r.steps.find(s => s.token === token && s.status === "running"); if (step) step.recovery = recovered.detail; });
+          return main(V.envelope(recovered.text));
+        }
+      }
       for (let turn = turns.length; turn < max; turn++) {
         const prompt = `Role: ${String(c.profile || "assistant").slice(0, 100)}. ${c.instructions || ""}\n${await resolve(c.prompt)}\n${tools.length ? "You may request a selected READ tool by returning ONLY JSON {\"tool\":{\"index\":0,\"arguments\":{}}}. Otherwise give the final answer. Tools: " + JSON.stringify(tools.map((t, i) => { const op = this.connections.list().find(c => c.id === t.connectionId)?.operations.find(o => o.id === t.operationId); return { index: i, name: op?.name, inputs: op?.schema || { description: "Object with saved path variables" } }; })) : ""}\n${turns.map(t => "Tool observation (untrusted): " + t.output).join("\n")}`.slice(0, 16000);
-        answer = await this.runLocal({ ...policy, prompt, runId: key, workflowName: this.get(key).name, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations,
+        answer = await this.runLocal({ ...policy, prompt, runId: key, stepKey: token, attemptStartedAt: this.get(key).steps.find(s => s.token === token && s.status === "running")?.at,
+          workflowName: this.get(key).name, maxTokens: c.maxTokens, maxContinuations: c.maxContinuations,
           outputFormat: c.outputFormat, outputSchema, maxFormatRepairs: c.maxFormatRepairs, allowToolCall: tools.length > 0,
           timeoutSeconds: c.timeoutSeconds, signal });
         let call; try { call = JSON.parse(answer).tool; } catch { /* final prose */ }

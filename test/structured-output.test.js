@@ -6,6 +6,7 @@ const Model = require("../plugin/workflow-model"), Output = require("../plugin/w
 const truncated = fs.readFileSync(path.join(__dirname, "fixtures/gemma-outline-truncated.txt"), "utf8");
 const tail = ' between them.","Describe common tools and their limitations."]},{"heading":"Conclusion","points":["Summarize the process.","Explain its practical limits."]}]}\n```';
 const document = require("../examples/researched-article.workflow.json");
+const missingBracket = fs.readFileSync(path.join(__dirname, "fixtures/gemma-outline-missing-bracket.txt"), "utf8");
 const contract = structuredClone(document.workflow.graph.nodes.find(n => n.id === "outline_agent").config.outputSchema);
 contract.properties.sections.minItems = contract.properties.sections.maxItems = 5;
 const reply = (content, finish_reason = "stop", tokens = 100) => ({ id: "a".repeat(64), choices: [{ message: { content }, finish_reason }], usage: { completion_tokens: tokens } });
@@ -35,6 +36,39 @@ test("the reported Gemma truncation continues despite stop, null or missing fini
 test("valid fenced JSON is canonicalized without another paid call even at the provider length limit", async t => {
   const f = setup(t, [reply(truncated + tail, "length")]);
   const text = await f.run(); assert.equal(text[0], "{"); assert.equal(JSON.parse(text).sections.length, 5); assert.equal(f.calls.length, 1);
+});
+
+test("the reported complete Gemma outline is repaired locally without paid format-repair calls", async t => {
+  for (const raw of [missingBracket, missingBracket.replace("Address ethical concerns like bias and privacy.", "Address bias and privacy concerns."), missingBracket.replace("Address ethical concerns like bias and privacy.", "Address bias & privacy concerns.")]) {
+    const f = setup(t, [reply(raw, "stop", 498)], { maxFormatRepairs: 0, maxContinuations: 0, maxTokens: 512 });
+    const answer = JSON.parse(await f.run());
+    assert.equal(answer.sections.length, 5); assert.equal(answer.sections[4].points.length, 2); assert.equal(f.calls.length, 1);
+    assert.equal(f.saved[0].completion.choices[0].message.content, raw);
+    assert.equal(f.saved[0].outputRecovery.kind, "missing-container-closers");
+    assert.deepEqual(f.saved[0].outputRecovery.edits.map(e => e.insert), ["]"]);
+    assert.deepEqual(f.order, ["request", "save", "ack"]);
+    const repaired = raw.trim().replace(/^```json\s*/, "").replace(/\s*```$/, "").replace(/"}]}$/, '"]}]}');
+    assert.deepEqual(answer, JSON.parse(repaired));
+  }
+});
+
+test("local and continued JSON use the same punctuation repair and preserve strings verbatim", async t => {
+  const f = setup(t, []); f.api.models.chat = async () => reply(missingBracket);
+  assert.equal(JSON.parse(await f.run({ model: "local-test", modelSource: "local" })).sections.length, 5);
+  assert.equal(f.saved[0].source, "local"); assert.equal(f.calls.length, 0);
+  const split = missingBracket.indexOf('"Generative AI:'), network = setup(t, [reply(missingBracket.slice(0, split)), reply(missingBracket.slice(split))]);
+  assert.equal(JSON.parse(await network.run()).sections.length, 5); assert.equal(network.calls.length, 2); assert.equal(network.saved[1].purpose, "continue");
+  const value = { points: ['literal ] } \\" quotation', 'emoji 😀 and backslash \\'] }, text = JSON.stringify(value), bad = text.slice(0, -2) + "}";
+  assert.deepEqual(Output.inspect(bad, { type: "object" }).value, value);
+});
+
+test("local syntax recovery cannot invent missing values, sections, string endings or tool arguments", () => {
+  const points = { type: "object", required: ["points"], properties: { points: { type: "array", minItems: 2, items: { type: "string" } } } };
+  for (const bad of ['{"points":["a","unfinished', '{"points":["a","b"]', '{"points":["a",}', '{"points":["a"}', '{"points":["a","b",}', '{"points":oops}', '{"points":["a","b"]} prose']) assert.equal(Output.inspect(bad, points).valid, false, bad);
+  const short = missingBracket.replace(/\{"heading":"The Future[\s\S]*?\}\]\}/, ']}');
+  assert.equal(Output.inspect(short, contract).valid, false);
+  assert.equal(Output.inspect('{"tool":{"index":0,"arguments":{"ids":[1,2}}}', {}, true).valid, false);
+  assert.equal(Output.inspect('{"x":' + '['.repeat(9) + '1}').valid, false, "Repair count is bounded");
 });
 test("a restarted continuation must independently satisfy the full schema", async t => {
   const f = setup(t, [reply(truncated), reply(truncated + tail)]);

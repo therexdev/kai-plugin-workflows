@@ -106,3 +106,42 @@ test("the reported truncated outline recovers through the complete 800-word arti
   assert.match(run.output[0].text, /Actual body words: 800/);
   assert.equal(run.networkCalls.filter(c => c.purpose === "continue").length, 1);
 });
+
+test("retry recovers the reported paid outline from a 0.3.14 run and completes all sections without another outline call", async t => {
+  const Output = require("../plugin/workflow-output"), inspect = Output.inspect;
+  const strict = t.mock.method(Output, "inspect", (text, schema, allowToolCall) => {
+    try { JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
+    catch { return { valid: false, incomplete: false, error: "The response is not complete, valid JSON." }; }
+    return inspect(text, schema, allowToolCall);
+  });
+  const raw = fs.readFileSync(path.join(__dirname, "fixtures/gemma-outline-missing-bracket.txt"), "utf8");
+  const f = fixture(t, "kai.workflows"), store = new CompanionStore({ dataDir: f.root, safeStorage: f.api.secrets });
+  let outlines = 0, topics = 0, writers = 0;
+  f.api.network.models = async () => [{ model: "gemma3-12b", available: true, maxOutput: 512 }];
+  f.api.wallet = { authorize: async () => ({}), complete: async request => {
+    const prompt = request.messages[1].content, stage = prompt.match(/STAGE: (\w+)/)[1]; let content;
+    if (stage === "TOPIC_DISCOVERY") { topics++; content = "AI topics: data, training, neural networks and ethics."; }
+    if (stage === "OUTLINE") { outlines++; content = raw; }
+    if (stage === "SECTION_RESEARCH") content = "Use the provided evidence about AI training and limitations.";
+    if (stage === "SECTION_WRITING") { writers++; const s = JSON.parse(prompt.match(/Assigned heading, word budget and requirements: (.+)/)[1]); content = Array(s.word_count).fill("Evidence").join(" ") + " [S" + s.id + "-1]"; }
+    return { choices: [{ message: { content }, finish_reason: "stop" }], usage: { completion_tokens: 498 } };
+  } };
+  const inference = createInference(f.api, (result, id) => store.change(d => (d.runs.find(r => r.id === id).networkCalls ||= []).push(result)));
+  const engine = new CompanionWorkflows({ store, connections: { list: () => [] }, models: () => [], runLocal: o => inference.run(o), canReviewNetwork: () => true, privacyMode: () => "network", lookup, fetchImpl: webMock }); t.after(() => engine.stop());
+  const spec = JSON.parse(source).workflow; Object.assign(spec, { model: "gemma3-12b", modelSource: "network", fallbackModels: [] });
+  for (const n of spec.graph.nodes.filter(n => n.type === "agent")) Object.assign(n.config, { model: "", fallbackModels: [] });
+  const saved = engine.save(spec), id = engine.begin(saved.id, { topic: "How does AI work?", word_count: 800 });
+  const settle = async () => { for (let i = 0; i < 1000; i++) { if (!engine.active.has(id)) return engine.get(id); await new Promise(r => setTimeout(r, 10)); } throw Error("Run did not settle"); };
+  const failed = await settle(); assert.equal(failed.status, "failed"); assert.match(failed.error, /2-repair limit/); assert.equal(outlines, 3);
+  strict.mock.restore();
+  // The user's installed release did not yet record exact step/attempt IDs.
+  engine.patch(id, r => { for (const call of r.networkCalls) { delete call.stepKey; delete call.attemptStartedAt; } });
+  const plan = engine.retryPlan(id); engine.retry(id, plan.fingerprint);
+  const completed = await settle(); assert.equal(completed.status, "completed", completed.error);
+  assert.equal(outlines, 3, "Reuse the paid outline; do not generate a fourth"); assert.equal(topics, 1); assert.equal(writers, 5);
+  assert.match(completed.output[0].text, /Actual body words: 800/);
+  const recovered = completed.steps.find(s => s.nodeId === "outline_agent" && s.status === "completed");
+  assert.equal(recovered.recovery.source, "saved-model-results"); assert.deepEqual(recovered.recovery.callIndices, [3]);
+  assert.equal(completed.networkCalls[3].completion.choices[0].message.content, raw);
+  assert.equal(completed.steps.filter(s => s.nodeId === "outline_agent" && s.status === "failed").length, 1);
+});

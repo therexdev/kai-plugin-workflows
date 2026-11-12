@@ -5,7 +5,12 @@ const { searchWeb, fetchPage, assertPublicTarget, publicPageRequest } = require(
 const STOP = new Set("a an the and or of to in on for from with by at as is are was were be being been do does did how what why when where which who whom this that these those it its their them they our your can could should would will may might must have has had not no into about through between work works working explain describe discuss overview introduce introduction conclusion article section topic topics required requirement requirements provide brief briefly detail include including importance role understanding understand guide beginner beginners key use using".split(" "));
 const words = text => [...new Set((String(text).normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).filter(w => w.length > 1 && !STOP.has(w)))];
 function focusedQuery(query, topic = "") {
-  return [...new Set([...words(topic).slice(0, 8), ...words(query)])].slice(0, 12).join(" ").slice(0, 240) || query;
+  // Preserve the question's intent. Stop words are useful for relevance checks,
+  // but stripping them from a query turns "How does AI work?" into just "ai".
+  const original = String(topic || query).trim().replace(/\s+/g, " ").split(" ").slice(0, 24).join(" ").slice(0, 180);
+  if (!topic || String(query).trim() === String(topic).trim()) return original;
+  const known = new Set(words(topic)), extra = words(query).filter(w => !known.has(w)).slice(0, 8).join(" ");
+  return (original + (extra ? " " + extra : "")).slice(0, 240);
 }
 function relevant(value, topic) {
   const anchors = words(topic); if (!anchors.length) return true;

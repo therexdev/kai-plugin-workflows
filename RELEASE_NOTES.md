@@ -1,3 +1,9 @@
+# Workflows 0.3.17
+
+The researched-article collector now expands grouped source markers such as `[S1-1, S1-3]` into individual citations before checking evidence, collecting bibliography entries and counting body words. Unknown IDs inside groups are rejected. Standalone punctuation left by removed citations is not counted as a word. This corrects missing source entries and inflated word counts observed in the live network test.
+
+Existing workflows receive this correction only when their collector code exactly matches the shipped example. Customized code and past run snapshots are preserved. Original model replies and receipts remain in Model results. Word count remains a writing target; this update does not add an editing or QA agent. Requires Core 0.7.28+ and needs no workflow reimport.
+
 # Workflows 0.3.16
 
 Network Agent steps now receive verified stream results through the existing Core SDK. When a provider job ends with a charged, signed partial reply, Workflows saves that original reply and receipt, then continues the text through the next configured model/location where available. If no fallback is available it can continue on the original allowed route. Continuation requests use smaller output chunks after a cutoff, preserve the step input, and remain within its total token, continuation, time and credit-approval limits. The graph advances only after the output is complete; JSON must pass the full configured schema.

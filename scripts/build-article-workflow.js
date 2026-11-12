@@ -66,11 +66,11 @@ Assigned heading, word budget and requirements: {{nodes.section.section}}
 Allowed sources: {{nodes.evidence.sources}}
 Researcher's brief: {{previous}}`, 1300);
 add("code", "collect", "Keep section and actual word count", { source: String.raw`
-const s = nodes.section, body = item.text.trim();
+const s = nodes.section, body = item.text.trim().replace(/\[\s*(S\d+-\d+(?:\s*[,;]\s*S\d+-\d+)*)\s*\]/g, (_match, ids) => ids.split(/[,;]/).map(id => "[" + id.trim() + "]").join(" "));
 if (!body) throw Error("The section writer returned no text.");
 const allowed = nodes.evidence.sources;
 for (const match of body.matchAll(/\[(S\d+-\d+)\]/g)) if (!allowed.some(x=>x.id===match[1])) throw Error("Writer returned a source ID absent from the retrieved evidence.");
-const words = body.replace(/\[S\d+-\d+\]/g, "").trim().split(/\s+/).filter(Boolean).length;
+const words = body.replace(/\[S\d+-\d+\]/g, "").trim().split(/\s+/).filter(word => /[\p{L}\p{N}]/u.test(word)).length;
 const cited = allowed.filter(x=>body.includes("["+x.id+"]")).map(({id,title,url})=>({id,title,url}));
 return [{topic:s.topic,title:s.title,target_words:s.target_words,sections:s.sections,index:s.index+1,
  article:s.article + (s.article ? "\n\n" : "") + "## " + s.section.heading + "\n\n" + body,

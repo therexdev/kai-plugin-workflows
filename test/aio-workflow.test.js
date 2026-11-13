@@ -17,6 +17,24 @@ test('concise model context preserves complete evidence, conditions and requirem
  assert.equal(output.prompt_context.article[0].evidence,undefined);assert.equal(output.prompt_context.settings.source_urls,undefined);
  assert(JSON.stringify(output.prompt_context).length<JSON.stringify(context).length/2);
 });
+test('a targeted outline correction preserves unrelated headings and requirements without model calls',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
+ const evaluate=(id,scope)=>V.evaluate(graph.nodes.find(n=>n.id===id).config.source,scope,signal,false);
+ const original={title:'Choosing legal help',angle:'A supported decision guide',sections:[{heading:'Find candidates',points:['Use referrals','Check public status']},{heading:'Ask about costs',points:['List unsupported prices','Explain payment terms']},{heading:'Next steps',points:['Arrange a consultation','Review the agreement']}]};
+ const context={section_count:3,budgets:[160,344,120],settings:{},sources:[]};
+ const prior=[{id:'unsupported',severity:'error',location:'Ask about costs',fix:'Ask about prices instead of inventing them.'}];
+ const initial=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior}}))[0];
+ assert.equal(initial.tasks.length,1);assert.equal(initial.tasks[0].index,1);
+ const assigned=(await evaluate('outline_review_revise_task',{item:initial}))[0];
+ assert.equal(assigned.task.heading,'Ask about costs');assert.deepEqual(assigned.task.existing,original.sections[1].points);
+ const revised=['Ask how fees are calculated','Request the applicable payment terms'];
+ const collected=(await evaluate('outline_review_revise_collect',{item:{json:{lines:revised}},nodes:{outline_review_revise_task:assigned}}))[0];
+ const result=(await evaluate('outline_review_revise_done',{item:collected}))[0].json;
+ assert.deepEqual(result,{...original,sections:original.sections.map((s,i)=>i===1?{...s,points:revised}:s)});
+ for(const finding of [{...prior[0],location:'$'},{...prior[0],fix:'Rename this heading.'}]){
+  const full=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[finding]}}))[0];assert.equal(full.tasks.length,4);assert.deepEqual(full.values,[]);
+ }
+});
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved drafts without approving them":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{
  const f=fixture(t,"kai.workflows"),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),calls=[];

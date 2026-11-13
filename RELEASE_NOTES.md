@@ -3,6 +3,7 @@
 - Reduce repeated AIO prompt context while preserving complete source passages, titles, quotations, client facts and section requirements.
 - Keep list introductions attached to their bullets so qualifiers such as “cannot” are not lost. Read quoted HTML attributes correctly and omit oversized blocks without cutting a condition in half.
 - Recover complete, schema-valid JSON followed only by bounded repeated closing punctuation without a paid model call. Retain the original reply and an edit record.
+- Review outlines as plans rather than completed prose, reject unsupported planned details, and retain unaffected outline parts locally when a correction names one section's requirements.
 
 Local automated validation: 181 passed, 0 failed, 1 skipped. Live end-to-end verification and native CI checks are in progress. This candidate has not been signed or published.
 

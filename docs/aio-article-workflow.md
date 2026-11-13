@@ -21,7 +21,7 @@ Reviewers receive the current artifact, relevant evidence and requirements indep
 
 Optional source-citation additions or removals in an outline are advisory when the statement text is otherwise identical. These findings stay in history. Changing wording, quantities, negations or one cited source to another is not treated as formatting; BLOCKER verdicts still block. This rule does not apply to article prose or its required citation checks.
 
-Outline corrections can identify a section by its heading or an exact point path such as `sections[3].points[0]`. Unaffected parts remain intact. Heading changes, invalid paths and broader planning changes still receive a full revision. Before a network request, a known unavailable model receives one cancellable two-second availability recheck; this does not retry a paid or uncertain completion.
+Outline corrections can identify a section by its heading, an exact point path such as `sections[3].points[0]`, or the exact text of a point belonging to only one section. Unaffected parts remain intact. Heading changes, ambiguous point text, invalid paths and broader planning changes still receive a full revision. Before a network request, a known unavailable model receives one cancellable two-second availability recheck; this does not retry a paid or uncertain completion.
 
 For hiring, choosing, buying, comparing and selecting topics, initial research also seeks questions, experience, costs, fees and agreement terms. The original topic remains the relevance filter. The same 2,200-character limit retains complete source passages; this expansion helps the planner receive decision evidence instead of mostly directory or location information. Other topics keep their original query.
 

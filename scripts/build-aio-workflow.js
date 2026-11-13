@@ -38,7 +38,9 @@ const assembleExtras = `const get=k=>item.values.find(p=>p.key===k).lines,meta=g
 function partition(id,label,stage,init,tasks,assemble){
  code(id,label,init+`; const allTasks=${tasks},findings=typeof prior==="undefined"?[]:prior;
  const required=findings.filter(f=>f.severity==="error"),sections=original?.sections;
- const targets=required.map(f=>sections?.findIndex(s=>s.heading===f.location));
+ const name=v=>String(v||"").trim().toLowerCase().replace(/\\s+/g," ");
+ const locate=location=>{const exact=sections?.map((s,i)=>name(s.heading)===name(location)?i:-1).filter(i=>i>=0)||[];if(exact.length)return exact.length===1?exact[0]:-1;const variants=[name(location).replace(/^section\\s*:\\s*/,""),name(location).replace(/\\s+section$/,"")],matches=sections?.map((s,i)=>variants.includes(name(s.heading))?i:-1).filter(i=>i>=0)||[];return matches.length===1?matches[0]:-1;};
+ const targets=required.map(f=>locate(f.location));
  const partial=Array.isArray(sections)&&sections.length===context.section_count&&required.length>0&&targets.every(i=>i>=0)&&required.every(f=>!/(heading|title|angle|reorder|reorgan|merge|split|duplicate)/i.test(f.fix||""))&&sections.every(s=>typeof s.heading==="string"&&s.heading.length<=80&&Array.isArray(s.points)&&s.points.length===2&&s.points.every(p=>typeof p==="string"&&p.length>0&&p.length<=110))&&typeof original.title==="string"&&original.title.length>0&&original.title.length<=100&&typeof original.angle==="string"&&original.angle.length>0&&original.angle.length<=160;
  const selected=partial?allTasks.filter(t=>t.key==="section"&&targets.includes(t.index)):allTasks;
  const values=partial?allTasks.filter(t=>!selected.includes(t)).map(t=>({key:t.key,index:t.index,lines:t.existing})):[];

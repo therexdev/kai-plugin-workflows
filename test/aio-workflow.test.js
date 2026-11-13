@@ -31,6 +31,9 @@ test('a targeted outline correction preserves unrelated headings and requirement
  const collected=(await evaluate('outline_review_revise_collect',{item:{json:{lines:revised}},nodes:{outline_review_revise_task:assigned}}))[0];
  const result=(await evaluate('outline_review_revise_done',{item:collected}))[0].json;
  assert.deepEqual(result,{...original,sections:original.sections.map((s,i)=>i===1?{...s,points:revised}:s)});
+ for(const location of ['Ask about costs section','Section: ASK ABOUT COSTS']){
+  const targeted=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[{...prior[0],location}]}}))[0];assert.deepEqual(targeted.tasks.map(t=>t.index),[1]);
+ }
  for(const finding of [{...prior[0],location:'$'},{...prior[0],fix:'Rename this heading.'}]){
   const full=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[finding]}}))[0];assert.equal(full.tasks.length,4);assert.deepEqual(full.values,[]);
  }

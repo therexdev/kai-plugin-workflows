@@ -18,6 +18,39 @@ function relevant(value, topic) {
   return anchors.some(w => found.has(w));
 }
 
+function passageScore(value, query, topic = "") {
+  const found = new Set(words(value)), base = new Set(words(topic));
+  return words(query).reduce((n, w) => n + (found.has(w) ? base.has(w) ? 1 : 4 : 0), 0);
+}
+function selectPassages(text, query, topic = "", maxChars = 2200) {
+  const blocks = String(text).split(/\n\s*\n/).filter(Boolean).flatMap(block => {
+    if (block.length <= maxChars) return [block];
+    // Long HTML paragraphs are grouped at sentence boundaries, not cut mid-rule.
+    const chunks = []; let chunk = "";
+    for (const sentence of block.split(/(?<=[.!?])\s+(?=[\p{Lu}\d])/u)) {
+      if (chunk && chunk.length + sentence.length + 1 > Math.floor(maxChars / 2)) { chunks.push(chunk); chunk = ""; }
+      chunk += (chunk ? " " : "") + sentence;
+    }
+    if (chunk) chunks.push(chunk);
+    return chunks;
+  });
+  const ranked = blocks.map((text, index) => ({ text, index, score: passageScore(text, query, topic) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  const selected = new Set(); let size = 0;
+  const keep = index => {
+    const block = blocks[index];
+    if (!block || selected.has(index) || size + block.length + (selected.size ? 9 : 0) > maxChars) return false;
+    size += block.length + (selected.size ? 9 : 0); selected.add(index); return true;
+  };
+  for (const block of ranked) {
+    if (selected.size && !block.score) continue;
+    if (keep(block.index)) { keep(block.index + 1); keep(block.index - 1); }
+  }
+  // A sentence exceeding the entire budget is omitted rather than cut before
+  // a condition or exception. Evidence is always an excerpt of the page.
+  return [...selected].sort((a, b) => a - b).map(i => blocks[i]).join("\n\n[...]\n\n");
+}
+
 async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup, maxPages = 3, topic = "", sourceUrls = [], timeoutMs = 90000 } = {}) {
   query = String(query || "").trim();
   topic = String(topic || "").trim().slice(0, 240);
@@ -28,7 +61,10 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
   const controller = new AbortController(), deadline = AbortSignal.timeout(timeoutMs), combined = AbortSignal.any([...(signal ? [signal] : []), controller.signal, deadline]);
   const searches = [], sources = [], seen = new Set(), limit = Math.max(1, Math.min(5, Number(maxPages) || 3));
   let provider = "none";
-  const result = () => ({ query, topic, provider, searches, retrievedAt: new Date().toISOString(), sources });
+  const result = () => ({ query, topic, provider, searches, retrievedAt: new Date().toISOString(),
+    sources: sources.filter(s => s.read).sort((a, b) => passageScore(b.title + " " + b.text, query, topic) - passageScore(a.title + " " + a.text, query, topic)).slice(0, limit)
+      .concat(sources.filter(s => !s.read).slice(0, 5)) });
+  const pageEvidence = page => ({ ...page, text: selectPassages(page.text, query, topic), read: true, excerpt: true });
   const timer = setInterval(() => { if (privacyMode() === "local-only") controller.abort(); }, 100); timer.unref?.();
   // The bundled search helper uses fixed providers. Bound every response and
   // pin public DNS, including each page redirect. Never send account headers.
@@ -50,14 +86,17 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
     // Explicit references are read through the same DNS, redirect, byte and
     // topic checks as search discoveries. They are never treated as evidence
     // until their actual page text was retrieved.
-    for (const url of [...new Set(sourceUrls)]) {
-      if (sources.filter(s => s.read).length >= limit) break;
-      seen.add(url);
-      try {
-        const page = await fetchPage(url, { fetchImpl: safeFetch, lookup, maxChars: 2200 });
-        if (topic && !relevant(page.title + " " + page.text, topic)) continue;
-        sources.push({ url, ...page, read: true, excerpt: true, provided: true });
-      } catch { check(); combined.throwIfAborted(); }
+    const references = [...new Set(sourceUrls)].slice(0, 10);
+    for (let offset = 0; offset < references.length; offset += 3) {
+      await Promise.all(references.slice(offset, offset + 3).map(async url => {
+        seen.add(url);
+        try {
+          const page = await fetchPage(url, { fetchImpl: safeFetch, lookup, maxChars: 24000 });
+          if (topic && !relevant(page.title + " " + page.text, topic)) return;
+          const evidence = pageEvidence(page);
+          if (evidence.text) sources.push({ url, ...evidence, provided: true });
+        } catch { check(); combined.throwIfAborted(); }
+      }));
     }
     if (sources.some(s => s.read)) provider = "provided";
     for (const searchQuery of queries) {
@@ -79,9 +118,10 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
         await Promise.all(batch.map(async candidate => {
           check(); combined.throwIfAborted();
           try {
-            const page = await fetchPage(candidate.url, { fetchImpl: safeFetch, lookup, maxChars: 2200 });
+            const page = await fetchPage(candidate.url, { fetchImpl: safeFetch, lookup, maxChars: 24000 });
             if (topic && !relevant(page.title + " " + page.text, topic)) { searches.at(-1).rejected++; return; }
-            if (sources.filter(s => s.read).length < limit) sources.push({ ...candidate, ...page, read: true, excerpt: true });
+            const evidence = pageEvidence(page);
+            if (evidence.text) sources.push({ ...candidate, ...evidence });
           } catch {
             check(); combined.throwIfAborted();
             sources.push({ ...candidate, read: false, text: "", note: "Page unavailable; snippet is discovery only, not verified evidence." });
@@ -102,4 +142,4 @@ async function research(query, { signal, privacyMode, fetchImpl = fetch, lookup,
     throw new CompanionError("Web research reached its time limit before any source could be read. Supply public reference URLs or retry failed work when search is reachable.");
   } finally { controller.abort(); clearInterval(timer); }
 }
-module.exports = { research, focusedQuery, relevant };
+module.exports = { research, focusedQuery, relevant, selectPassages };

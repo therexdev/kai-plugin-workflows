@@ -164,3 +164,22 @@ test("research deadline without evidence is specific and cancellation never rele
  const stop=new AbortController();stop.abort(new Error("User cancelled"));
  await assert.rejects(research("AI training",{...options,signal:stop.signal}),/User cancelled/);
 });
+
+test("provided sources are ranked across all URLs and late conditional paragraphs remain intact",async()=>{
+ const qualification="This assistance excludes criminal cases. An exception must be checked directly with the provider.";
+ const visited=[];
+ const result=await research("Hiring an attorney costs legal aid eligibility",{topic:"Hiring an attorney",sourceUrls:Array.from({length:4},(_,i)=>"https://evidence.example/"+i),maxPages:1,privacyMode:()=>"network",lookup,fetchImpl:async url=>{
+  visited.push(url);
+  const late=url.endsWith('/3')?'<p>Legal aid costs and eligibility depend on the program and income.</p><p>'+qualification+'</p>':'';
+  return new Response('<html><title>Hiring an attorney</title>'+Array.from({length:35},(_,i)=>'<p>Hiring an attorney requires careful preparation. General introduction '+i+'.</p>').join('')+late+'</html>',{headers:{'content-type':'text/html'}});
+ }});
+ assert.equal(visited.length,4);assert.equal(result.sources.length,1);assert.equal(result.sources[0].url,'https://evidence.example/3');
+ assert.match(result.sources[0].text,/Legal aid costs and eligibility/);assert.ok(result.sources[0].text.includes(qualification));assert.ok(result.sources[0].text.length<=2200);
+});
+test("passage selection keeps long paragraphs useful and never cuts a sentence into evidence",()=>{
+ const {selectPassages}=require('../plugin/service/workflow-research');
+ const text='AI training learns from data. '+('Examples illustrate how AI learns. '.repeat(100));
+ const excerpt=selectPassages('AI evidence\n\n'+text,'AI training','AI');
+ assert.match(excerpt,/AI training learns from data\./);assert.ok(excerpt.length<=2200);assert.ok(excerpt.endsWith('.'));
+ assert.equal(selectPassages('x'.repeat(2400),'x',''), '');
+});

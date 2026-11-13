@@ -9,14 +9,15 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
  f.api.wallet={complete:async request=>{
   assert(Buffer.byteLength(JSON.stringify(request.messages))<=24000,"Never silently truncate a model packet");
   const p=request.messages[1].content;assert.doesNotMatch(p,/\{\{(?:item|nodes)\b/,"Every prompt reference must be resolved");const stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let content;
-  const packet=()=>p.includes("Packet: ")?JSON.parse(p.match(/Packet: (.+)/)[1]):({artifact:p.match(/Artifact: (.+)/)[1],context:JSON.parse(p.match(/Context: (.+)/)[1])});
+  const packet=()=>p.includes("Packet: ")?JSON.parse(p.match(/Packet: (.+)/)[1]):({artifact:p.match(/Artifact: (.+)/)[1],context:JSON.parse(p.match(/(?:Context|Source context): (.+)/)[1])});
   if(stage==="AIO_RESEARCH")content=JSON.stringify({intent:"Explain AI",facts:["AI learns from data. [S0-1]","Training identifies patterns. [S0-1]"],gaps:"Limited evidence.",angle:"Training versus inference"});
   else if(stage==="AIO_OUTLINE"||stage==="OUTLINE_REVIEW_REVISE"){
    const task=JSON.parse(p.match(/Task: (.+)/)[1]);
    content=JSON.stringify({lines:task.key==="meta"?["Understanding how artificial intelligence works","Explain training versus inference",...Array.from({length:task.count-2},(_,i)=>"AI topic "+(i+1))]:["Explain the evidence","Give a useful example"]});
   }
-  else if(stage==="AIO_COACH")content=JSON.stringify({focus:"Explain training simply",facts:["Models learn from data."],gaps:"Limited evidence."});
+  else if(stage==="AIO_COACH")content=JSON.stringify({focus:"Explain training simply",facts:[{claim:"AI training learns from data.",source_id:JSON.parse(p.match(/Packet: (.+)/)[1]).sources[0].id,quote:"AI training learns from data."}],gaps:"Limited evidence."});
   else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]);content=Array(a.section.word_count).fill("Evidence").join(" ");}
+  else if(stage.endsWith("_FACTS")){content=JSON.stringify({verdict:stuck?"CHANGE_REQUEST":"PASS",items:stuck?[{id:"unsupported",severity:"error",location:"section",evidence:"Unsupported claim",fix:"Remove the unsupported claim"}]:[],...(stage.startsWith("SECTION")?{summary:"AI learns from data."}:{})});}
   else if(stage.endsWith("_REVIEW")){
    let needs=false;if(stage==="SECTION_REVIEW_REVIEW"){const a=packet();needs=stuck||!a.artifact.includes("[S");}
    const advisory=stage==="OUTLINE_REVIEW_REVIEW"; content=JSON.stringify({verdict:needs||advisory?"CHANGE_REQUEST":"PASS",...(stage==="SECTION_REVIEW_REVIEW"?{summary:"AI learns patterns from training data. ["+packet().context.sources[0].id+"]"}:{}),items:needs?[{id:"citation-1",severity:"error",location:"section",evidence:"No citation",fix:"Cite supporting source [S1-1] with the section's actual ID."}]:advisory?[{id:"style-note",severity:"warning",location:"outline",evidence:"Style preference",fix:"Consider shorter headings."}]:[]});
@@ -36,12 +37,13 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
  let r;for(let i=0;i<6000;i++){r=engine.get(id);if(process.env.KAI_QA_DEBUG && i%100===0)console.log(r.status,r.steps.at(-1)?.label,r.steps.at(-1)?.status,r.error);if(["completed","failed","waiting"].includes(r.status))break;await new Promise(r=>setTimeout(r,5));}
  assert.equal(r.status,"completed",r.error);
  const result=r.frames.root.states.result.outputs.main[0],sections=r.frames.root.states.plan.outputs.main[0].sections;
- assert.equal(calls.filter(s=>s==="AIO_OUTLINE").length,sections.length+1);assert.equal(calls.filter(s=>s==="AIO_EXTRAS").length,7);
+ assert.equal(calls.filter(s=>s==="AIO_OUTLINE").length,sections.length+1);assert.equal(calls.filter(s=>s==="AIO_EXTRAS").length,stuck?0:7);
  assert.equal(result.counts.length,sections.length);assert.equal(result.counts.reduce((s,x)=>s+x.target,0),stuck?200:2000);
  assert.equal(result.status,stuck?"Needs review":"Passed configured checks");
  assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVISE").length,sections.length*(stuck?2:1));
- assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVIEW").length,sections.length*(stuck?2:1));
- assert.deepEqual(result.visibleFAQ,result.schema.mainEntity.map(q=>({question:q.name,answer:q.acceptedAnswer.text})));
+ assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVIEW").length,sections.length*(stuck?0:1));
+ assert.deepEqual(result.visibleFAQ,(result.schema?.mainEntity||[]).map(q=>({question:q.name,answer:q.acceptedAnswer.text})));
+ if(stuck){assert.equal(result.schema,null);assert.equal(result.extras.withheld,true);assert.equal(calls.some(s=>s.startsWith("EXTRAS_REVIEW")),false);}
  for(const c of result.counts)assert.equal(c.target,c.actual);
  assert.equal(result.reviews[1].history[0].issues.some(x=>x.code==="citations-missing"),true);
  assert.equal(result.reviews[1].history.at(-1).issues.some(x=>x.code==="citations-missing"),false);
@@ -50,7 +52,7 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
 test("article citation formatting keeps unknown IDs visible to validation",async()=>{
  const graph=Transfer.parseDocument(source).graph,n=graph.nodes.find(n=>n.id==='draft_packet'),V=require('../plugin/service/workflow-values'),Quality=require('../plugin/workflow-quality');
  const evidence={sources:[{id:'S1-1'},{id:'S1-2'}],settings:{revision_limit:2}};
- const packet=(await V.evaluate(n.config.source,{item:{text:'Supported claim (S1-1, S1-2). Unknown claim (S1-99).'},nodes:{evidence,coach:{text:'Use evidence.'}}},new AbortController().signal,false))[0];
+ const packet=(await V.evaluate(n.config.source,{item:{text:'Supported claim (S1-1, S1-2). Unknown claim (S1-99).'},nodes:{evidence,verified_coach:{items:[{facts:[]}] }}},new AbortController().signal,false))[0];
  assert.equal(packet.artifact,'Supported claim [S1-1,S1-2]. Unknown claim [S1-99].');
  const result=Quality.inspect(packet.artifact,[{type:'citations',sources:evidence.sources,min:1}]);
  assert.equal(result.valid,false);assert(result.issues.some(i=>i.code==='citations-unknown'));
@@ -75,4 +77,79 @@ test("outline and extras revisions regenerate small parts and recheck their asse
   let run;for(let i=0;i<6000;i++){run=engine.get(id);if(run.status!=='running')break;await new Promise(r=>setTimeout(r,5));}
   assert.equal(run.status,'completed',run.error);const final=run.frames.root.states[prefix].outputs.done[0];assert.equal(final.status,'Passed checks');assert.equal(final.cycle,1);assert.equal(final.artifact.title,'A clear evidence-based article title');assert.equal(calls.filter(s=>s.endsWith('_REVISE')).length,kind==='outline'?10:7);assert.equal(calls.filter(s=>s.endsWith('_REVIEW')).length,1);
  }
+});
+
+test('coaching excludes fabricated quotations and unresolved sections cannot seed extras',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
+ const evaluate=(id,context)=>V.evaluate(graph.nodes.find(n=>n.id===id).config.source,context,signal,false);
+ const quote='AI training learns from data only when data is available.';
+ const cards=await evaluate('verified_coach',{item:{json:{focus:'Training',facts:[{claim:'Supported',source_id:'S1-1',quote},{claim:'Invented',source_id:'S1-1',quote:'Training guarantees perfect results.'},{claim:'Wrong ID',source_id:'S1-99',quote}],gaps:'Limited evidence.'}},nodes:{evidence:{sources:[{id:'S1-1',text:quote}]}}});
+ assert.deepEqual(cards[0].facts,[{claim:'Supported',source_id:'S1-1',quote}]);assert.match(cards[0].gaps,/Unmatched/);
+ const packet=(await evaluate('aio_packet',{item:{title:'Draft',topic:'AI',settings:{},digests:[{heading:'Safe',status:'Passed checks',summary:quote},{heading:'Unsafe',status:'Needs review',summary:'Invented'}]}}))[0];
+ assert.equal(packet.article.length,1);assert.equal(packet.article[0].heading,'Safe');assert.deepEqual(packet.withheld,['Unsafe']);
+});
+test('section and total word budgets block approval instead of issuing warnings',()=>{
+ const graph=Transfer.parseDocument(source).graph,Quality=require('../plugin/workflow-quality');
+ for(const id of ['section_review_checks','final_checks']){
+  const rule=graph.nodes.find(n=>n.id===id).config.rules.find(r=>r.type==='words');
+  assert.notEqual(rule.severity,'warning');
+  const result=Quality.inspect(rule.field?{[rule.field]:'Only three words'}:'Only three words',[{...rule,min:100,max:120}]);
+  assert.equal(result.valid,false);assert.equal(result.issues[0].severity,'error');
+ }
+});
+
+test('length revisions get one explicit rewrite instruction and retain the factual audit gate',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),judge=graph.nodes.find(n=>n.id==='section_review_judge'),signal=new AbortController().signal;
+ const issue={id:'words',severity:'error',code:'words',message:'Outside range',actual:203,min:144,max:176};
+ const state={artifact:'Draft',context:{section:{word_count:160}},cycle:0,limit:2,history:[],checks:{valid:false,issues:[issue],metrics:[{type:'words',actual:203,min:144,max:176}]}};
+ const output=(await V.evaluate(judge.config.source,{item:{json:{verdict:'CHANGE_REQUEST',items:[{id:'words',severity:'error',location:'$',evidence:'203 words',fix:'Write 144–176 words.'}],summary:''}},nodes:{section_review_checks:state}},signal,false))[0];
+ assert.equal(output.prior.length,1);assert.equal(output.prior[0].fix,'Write 144–176 words.');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
+ assert.equal(output.needsRevision,true);assert.equal(output.status,'Needs review');
+ const revise=graph.nodes.find(n=>n.id==='section_review_revise');assert.match(revise.config.prompt,/Mandatory revision: \{\{item.revisionInstruction\}\}/);
+ assert.ok(graph.edges.some(e=>e.from==='section_review_ready'&&e.to==='section_review_facts'));
+});
+
+test('source warnings block approval and subsequent content edits keep the word budget',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
+ const audit={verdict:'PASS',summary:'Claim summary',items:[{id:'scope',severity:'warning',location:'Paragraph 1',evidence:'These services share terms',fix:'Specify which service has these terms.'}]};
+ const normalize=graph.nodes.find(n=>n.id==='section_review_facts_decision');
+ const out=(await V.evaluate(normalize.config.source,{item:{json:audit}},signal,false))[0];
+ assert.equal(out.json.verdict,'CHANGE_REQUEST');assert.equal(out.json.items[0].severity,'error');assert.equal(audit.items[0].severity,'warning');
+ const judge=graph.nodes.find(n=>n.id==='section_review_judge'),packet={artifact:'Draft',context:{},cycle:1,limit:2,history:[],checks:{valid:true,issues:[],metrics:[{type:'words',actual:170,min:144,max:176}]}};
+ const judged=(await V.evaluate(judge.config.source,{item:out,nodes:{section_review_checks:packet}},signal,false))[0];
+ assert.equal(judged.status,'Needs review');assert.equal(judged.needsRevision,true);assert.match(judged.revisionInstruction,/KEEP.*170.*144–176/);
+});
+
+test('a reviewer cannot revive a resolved mechanical error from prior history',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),judge=graph.nodes.find(n=>n.id==='section_review_judge'),signal=new AbortController().signal;
+ const old={id:'check-2-1',severity:'error',location:'$',evidence:'203 words',fix:'Write 144–176 words (currently 203).'};
+ const packet={artifact:'Current draft',context:{},cycle:1,limit:2,history:[],checks:{valid:true,issues:[],metrics:[{type:'words',actual:170,min:144,max:176}]}};
+ const judgeWith=async items=>(await V.evaluate(judge.config.source,{item:{json:{verdict:'CHANGE_REQUEST',items,summary:'Current summary'}},nodes:{section_review_checks:packet}},signal,false))[0];
+ const resolved=await judgeWith([old]);assert.equal(resolved.status,'Passed checks');assert.equal(resolved.needsRevision,false);assert.deepEqual(resolved.history[0].ignoredModelFindings,[old]);
+ const factual={id:'unsupported-claim',severity:'error',location:'Paragraph 2',evidence:'Unproven guarantee',fix:'Remove the guarantee.'};
+ const mixed=await judgeWith([old,factual]);assert.equal(mixed.status,'Needs review');assert.deepEqual(mixed.prior,[factual]);
+ packet.checks={valid:false,issues:[{...old,code:'words',message:'Outside range'}],metrics:[{type:'words',actual:203,min:144,max:176}]};
+ const active=await judgeWith([old]);assert.equal(active.status,'Needs review');assert.equal(active.history[0].ignoredModelFindings.length,0);
+});
+
+test('a complete source-audit quotation fits the schema without a paid formatting repair',()=>{
+ const graph=Transfer.parseDocument(source).graph,Output=require('../plugin/workflow-output'),reply=require('./fixtures/aio-audit-long-evidence.json');
+ assert.ok(reply.items[0].evidence.length>220);
+ const schema=graph.nodes.find(n=>n.id==='section_review_facts').config.outputSchema;
+ assert.equal(Output.validate(reply,schema),'');
+ const tooLarge=structuredClone(reply);tooLarge.items[0].evidence='x'.repeat(601);assert.ok(Output.validate(tooLarge,schema));
+});
+
+test('a short section receives only the missing paragraph and the combined draft is rechecked',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),Q=require('../plugin/workflow-quality'),signal=new AbortController().signal;
+ const issue={id:'check-2-1',code:'words',severity:'error',location:'$',message:'Outside range',actual:299,min:309,max:379};
+ const packet={artifact:Array(299).fill('Existing').join(' ')+' [S2-1]',context:{section:{word_count:344}},cycle:0,limit:2,history:[],checks:{valid:false,issues:[issue],metrics:[{type:'words',actual:299,min:309,max:379}]}};
+ const json={verdict:'CHANGE_REQUEST',items:[{id:issue.id,severity:'error',location:'$',evidence:issue.message,fix:'Write 309–379 words.'}],summary:''};
+ const node=id=>graph.nodes.find(n=>n.id===id);
+ const judged=(await V.evaluate(node('section_review_judge').config.source,{item:{json},nodes:{section_review_checks:packet}},signal,false))[0];
+ assert.equal(judged.revisionMode,'append');assert.match(judged.revisionInstruction,/45 words \(allowed 10–80\)/);
+ const revised=(await V.evaluate(node('section_review_keep').config.source,{item:{text:Array(45).fill('Additional').join(' ')+' [S2-1]'},nodes:{section_review_judge:judged}},signal,false))[0];
+ assert.ok(revised.artifact.startsWith(packet.artifact+'\n\n'));assert.equal(Q.wordCount(revised.artifact),344);assert.equal(revised.reviewed,false);
+ packet.checks.issues.push({...issue,id:'check-4-2',code:'forbidden'});
+ const mixed=(await V.evaluate(node('section_review_judge').config.source,{item:{json},nodes:{section_review_checks:packet}},signal,false))[0];assert.equal(mixed.revisionMode,'replace');
 });

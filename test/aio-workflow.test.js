@@ -167,6 +167,32 @@ test('source warnings block approval and subsequent content edits keep the word 
  assert.equal(judged.status,'Needs review');assert.equal(judged.needsRevision,true);assert.match(judged.revisionInstruction,/KEEP.*170.*144–176/);
 });
 
+test('a short uncited section receives factual and mechanical fixes in its first revision',async t=>{
+ const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),full=Transfer.parseDocument(source),M=require('../plugin/workflow-model');
+ const nodes=full.graph.nodes.filter(n=>n.id.startsWith('section_review')),ids=new Set(nodes.map(n=>n.id)),calls=[];
+ nodes.push(M.node('trigger','start'),M.node('output','out',undefined,{text:'{{previous}}'}));
+ const edges=full.graph.edges.filter(e=>ids.has(e.from)&&ids.has(e.to));edges.push(M.edge('start','section_review'),M.edge('section_review','out','done'));
+ let revised=false;
+ f.api.network.models=async()=>[{model:'gemma3-12b',available:true,maxOutput:256}];
+ f.api.wallet={authorize:async()=>{},complete:async request=>{
+  const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let content;
+  if(stage==='SECTION_REVIEW_FACTS')content=JSON.stringify({verdict:revised?'PASS':'CHANGE_REQUEST',items:revised?[]:[{id:'unsupported-assurance',severity:'error',location:'Sentence 1',evidence:'Listing guarantees success.',fix:'Remove the unsupported guarantee.'}],summary:'The directory lists participating providers.'});
+  else if(stage==='SECTION_REVIEW_REVISE'){
+   assert.match(p,/Remove the unsupported guarantee/);assert.match(p,/144–176/);assert.match(p,/known source citation/);
+   revised=true;content=Array(160).fill('Supported').join(' ')+' [S1-1]';
+  }else {assert.equal(stage,'SECTION_REVIEW_REVIEW');content=JSON.stringify({verdict:'PASS',items:[],summary:'Participating providers are listed. [S1-1]'});}
+  return {choices:[{message:{content},finish_reason:'stop'}],usage:{completion_tokens:150},koin:{state:'charged'}};
+ }};
+ const inference=createInference(f.api,async()=>{}),engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[],runLocal:o=>inference.run(o),canReviewNetwork:()=>true,privacyMode:()=> 'network'});t.after(()=>engine.stop());
+ const context={topic:'Choose a provider',section:{word_count:160},settings:{word_tolerance:0.1,banned_phrases:['TODO']},sources:[{id:'S1-1',text:'This directory lists participating providers.'}]};
+ const w=engine.save({...full,graph:{version:2,nodes,edges}}),id=engine.begin(w.id,{artifact:'Listing guarantees success. '+Array(113).fill('Draft').join(' '),context,cycle:0,limit:2,prior:[],history:[],reviewed:false});
+ let run;for(let i=0;i<6000;i++){run=engine.get(id);if(run.status!=='running')break;await new Promise(r=>setTimeout(r,5));}
+ assert.equal(run.status,'completed',run.error);const result=run.frames.root.states.section_review.outputs.done[0];
+ assert.equal(result.status,'Passed checks');assert.equal(result.cycle,1);
+ assert.deepEqual(calls,['SECTION_REVIEW_FACTS','SECTION_REVIEW_REVISE','SECTION_REVIEW_FACTS','SECTION_REVIEW_REVIEW']);
+ assert.ok(result.history[0].issues.some(i=>i.code==='words'));assert.ok(result.history[0].issues.some(i=>i.code==='citations-missing'));assert.ok(result.history[0].issues.some(i=>i.id==='unsupported-assurance'));
+});
+
 test('a reviewer cannot revive a resolved mechanical error from prior history',async()=>{
  const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),judge=graph.nodes.find(n=>n.id==='section_review_judge'),signal=new AbortController().signal;
  const old={id:'check-2-1',severity:'error',location:'$',evidence:'203 words',fix:'Write 144–176 words (currently 203).'};

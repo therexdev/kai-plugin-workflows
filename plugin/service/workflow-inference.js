@@ -6,6 +6,7 @@ const Model = require("../workflow-model");
 const Output = require("../workflow-output");
 const Continuation = require("./workflow-continuation");
 const { withDeadline } = require("./workflow-deadline");
+const { setTimeout: delay } = require("node:timers/promises");
 const networkModel = model => typeof model === "string" && /^koinos-network:[a-zA-Z0-9._-]{1,100}$/.test(model);
 const credits = value => { const n = BigInt(value); return `${n / 100000n}.${String(n % 100000n).padStart(5, "0")}`.replace(/\.?0+$/, ""); };
 
@@ -188,10 +189,11 @@ function createInference(api, recordResult) {
         const chosen = catalog.find(m => m.alias === model && m.status === "ready");
         if (!chosen) {
           unavailableMessage = error;
-          // Discovery is read-only and no completion has started. Retry this
-          // failed lookup once; never extend paid or uncertain request retries.
-          if (catalogReadFailed && freshnessAttempt === 0) {
-            await new Promise(resolve => setTimeout(resolve, 250));
+          // Discovery is read-only and no completion has started. Give a known
+          // temporarily unavailable model one brief recheck, or recover one
+          // failed lookup. Paid/uncertain request retry rules remain unchanged.
+          if (freshnessAttempt === 0 && (catalogReadFailed || catalog.some(m => m.alias === model))) {
+            await delay(catalogReadFailed ? 250 : 2000, undefined, { signal });
             continue;
           }
           break;

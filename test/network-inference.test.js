@@ -94,6 +94,29 @@ test("cancellation during provider discovery prevents another lookup or generati
   assert.equal(refreshes, 1); assert.equal(generations, 0);
 });
 
+test("temporary catalog unavailability is rechecked before any paid dispatch", async t => {
+  for (const permanent of [false, true]) {
+    const f = setup(t); let refreshes = 0, generations = 0;
+    f.api.network.models = async () => [{ model: "test-network", available: ++refreshes > 1 && !permanent, maxOutput: 256 }];
+    f.api.wallet.complete = async () => { generations++; return { choices: [{ message: { content: "Available again" }, finish_reason: "stop" }] }; };
+    const result = f.inference.run({ model: ALIAS, prompt: "Resume the next step" });
+    if (permanent) await assert.rejects(result, /available/);
+    else assert.equal(await result, "Available again");
+    assert.equal(refreshes, 2); assert.equal(generations, permanent ? 0 : 1);
+  }
+});
+
+test("cancelling an availability wait prevents a second lookup and paid dispatch", async t => {
+  const f = setup(t), controller = new AbortController(); let refreshes = 0, generations = 0;
+  f.api.network.models = async () => {
+    refreshes++; setTimeout(() => controller.abort(), 10);
+    return [{ model: "test-network", available: false, maxOutput: 256 }];
+  };
+  f.api.wallet.complete = async () => { generations++; throw Error("Must not generate"); };
+  await assert.rejects(f.inference.run({ model: ALIAS, prompt: "Cancelled", signal: controller.signal }), /abort/i);
+  assert.equal(refreshes, 1); assert.equal(generations, 0);
+});
+
 test("fallback selection never retries an ambiguous outcome, a single model, or a partial response", async t => {
   for (const scenario of ["unknown", "code-only", "explicit", "partial", "cancel", "privacy", "no-provider"]) {
     const f = setup(t); let attempts = 0;

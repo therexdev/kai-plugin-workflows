@@ -16,6 +16,8 @@
 
 - Keep optional outline citation additions/removals advisory only when the statement text is identical. Retain the original findings; changed wording, quantities, source reassignment and BLOCKER verdicts still require resolution. Article citation checks are unchanged.
 - Review the current artifact independently without feeding reviewers previous issue lists or another reviewer's findings. Revisions and run history retain those findings, reducing repeated requests to fix already-corrected text.
+- Target outline point corrections identified by JSON field paths as well as headings. Invalid or broader locations still require a full planning revision.
+- Recheck a known unavailable network model once after a two-second cancellable wait before dispatch. Missing models, fallback order and paid or uncertain request recovery rules are unchanged.
 
 This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 

@@ -38,6 +38,17 @@ test('a targeted outline correction preserves unrelated headings and requirement
   const full=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[finding]}}))[0];assert.equal(full.tasks.length,4);assert.deepEqual(full.values,[]);
  }
 });
+test('an unresolved outline delivers its findings without starting paid drafting',async t=>{
+ const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),M=require('../plugin/workflow-model'),full=Transfer.parseDocument(source),pick=id=>full.graph.nodes.find(n=>n.id===id);let calls=0;
+ const engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[{alias:'local-test',status:'ready'}],runLocal:async()=>{calls++;return 'Draft started';}});t.after(()=>engine.stop());
+ const graph={version:2,nodes:[M.node('trigger','start'),pick('outline_accepted'),pick('outline_hold'),M.node('agent','draft',undefined,{model:'local-test',prompt:'Draft the article'})],edges:[M.edge('start','outline_accepted'),M.edge('outline_accepted','outline_hold','false'),M.edge('outline_accepted','draft','true')]};
+ const saved=engine.save({...full,graph});
+ for(const status of ['Needs review','Passed checks']){
+  const id=engine.begin(saved.id,{status,artifact:{title:'Saved outline'},prior:[{fix:'Remove the unsupported requirement'}]});let run;for(let i=0;i<100;i++){run=engine.get(id);if(run.status!=='running')break;await new Promise(r=>setTimeout(r,5));}
+  assert.equal(run.status,'completed',run.error);assert.equal(calls,status==='Needs review'?0:1);
+  if(status==='Needs review'){assert.match(run.output[0].text,/Status: Needs review/);assert.match(run.output[0].text,/Remove the unsupported requirement/);assert.equal(run.frames.root.states.draft.status,'skipped');}
+ }
+});
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved drafts without approving them":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{
  const f=fixture(t,"kai.workflows"),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),calls=[];

@@ -57,7 +57,7 @@
           },
           "config": {
             "language": "javascript",
-            "source": "\n const topic=input.topic.trim(),total=input.word_count;\n if(!topic||topic.length>240)throw Error(\"Use a topic of 1–240 characters.\");\n if(!Number.isInteger(total)||total<200||total>2400)throw Error(\"Use a word_count between 200 and 2400 for this reviewed article template.\");\n // Edit these settings for a client, house style or different review policy.\n const settings={source_urls:input.source_urls||[],audience:\"Informed general reader\",language:\"English\",style:\"Clear, specific and natural. Explain unfamiliar terms. No exaggerated claims.\",client_facts:[],publish_url:\"\",revision_limit:2,word_tolerance:0.10,banned_phrases:[\"TODO\",\"[insert\",\"as an AI language model\"]};\n const intro=Math.min(160,Math.round(total*.12)),end=Math.min(120,Math.round(total*.08)),body=total-intro-end,n=Math.max(1,Math.ceil(body/360));\n const budgets=[intro,...Array.from({length:n},(_,i)=>Math.floor(body/n)+(i<body%n?1:0)),end];\n return [{topic,word_count:total,settings,budgets,section_count:budgets.length}];\n"
+            "source": "\n const topic=input.topic.trim(),total=input.word_count;\n if(!topic||topic.length>240)throw Error(\"Use a topic of 1–240 characters.\");\n if(!Number.isInteger(total)||total<200||total>2400)throw Error(\"Use a word_count between 200 and 2400 for this reviewed article template.\");\n // Edit these settings for a client, house style or different review policy.\n const settings={source_urls:input.source_urls||[],audience:\"Informed general reader\",language:\"English\",style:\"Clear, specific and natural. Explain unfamiliar terms. No exaggerated claims.\",client_facts:[],publish_url:\"\",revision_limit:2,word_tolerance:0.10,banned_phrases:[\"TODO\",\"[insert\",\"as an AI language model\"]};\n const intro=Math.min(160,Math.round(total*.12)),end=Math.min(120,Math.round(total*.08)),body=total-intro-end,n=Math.max(1,Math.ceil(body/360));\n const budgets=[intro,...Array.from({length:n},(_,i)=>Math.floor(body/n)+(i<body%n?1:0)),end];\n const research_query=topic+(/\\b(?:hir(?:e|ing)|choos(?:e|ing)|buy(?:ing)?|compar(?:e|ing)|select(?:ing)?)\\b/i.test(topic)?\" choosing questions experience costs fees agreements terms\":\"\");\n return [{topic,research_query,word_count:total,settings,budgets,section_count:budgets.length}];\n"
           }
         },
         {
@@ -69,7 +69,7 @@
             "y": 390
           },
           "config": {
-            "query": "{{item.topic}}",
+            "query": "{{item.research_query}}",
             "maxPages": 4,
             "execution": "once",
             "topic": "{{item.topic}}",

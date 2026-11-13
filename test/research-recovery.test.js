@@ -195,6 +195,23 @@ test("passage selection keeps long paragraphs useful and never cuts a sentence i
  assert.equal(selectPassages('x'.repeat(2400),'x',''), '');
 });
 
+test("decision-guide research retains interview and fee evidence instead of repeated topic mentions",async()=>{
+ const graph=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/aio-article.workflow.json'),'utf8')).workflow.graph;
+ const V=require('../plugin/service/workflow-values'),signal=new AbortController().signal,topic='Hiring a consultant in Chicago';
+ const prepare=async topic=>{
+  const item=(await V.evaluate(graph.nodes.find(n=>n.id==='brief').config.source,{input:{topic,word_count:400,source_urls:['https://evidence.example/guide']}},signal,false))[0];
+  return V.resolve(graph.nodes.find(n=>n.id==='topic_sources').config,{item},signal);
+ };
+ const config=await prepare(topic);
+ const questions='Questions about experience and suitability help compare options. Ask about previous projects; do not assume every provider has the same experience.';
+ const fees='Costs and fees depend on the service. Written agreements must identify applicable charges and exclusions; no total price is promised.';
+ const html='<html><title>Hiring a consultant in Chicago</title>'+Array.from({length:30},(_,i)=>'<p>Hiring a consultant in Chicago requires preparation. This is general directory introduction '+i+'.</p>').join('')+'<h2>Choosing a consultant</h2><p>'+questions+'</p><h2>Fees and agreements</h2><p>'+fees+'</p></html>';
+ const result=await research(config.query,{...config,maxPages:1,privacyMode:()=> 'network',lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}})});
+ assert.equal(config.topic,topic);assert(result.sources[0].text.includes(questions));assert(result.sources[0].text.includes(fees));assert(result.sources[0].text.length<=2200);
+ assert.equal((await prepare('How AI learns')).query,'How AI learns');
+ assert((await prepare('Hiring '+ 'x'.repeat(233))).query.length<=400);
+});
+
 test("research keeps a list's negative introduction attached to its matching bullets",async()=>{
  const html='<html><head><title>ARDC information</title></head><body><p>About public lawyer information.</p><h2>What does the ARDC not do?</h2><p>The ARDC cannot:</p><ul><li>give legal advice</li><li>change court decisions</li><li>assign lawyers to cases</li></ul><p>Use the lawyer search to check license status.</p></body></html>';
  const result=await research('ARDC change court decisions lawyers',{topic:'ARDC',sourceUrls:['https://evidence.example/ardc'],maxPages:1,privacyMode:()=> 'network',lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}})});

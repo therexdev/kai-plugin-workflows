@@ -96,9 +96,10 @@ code("brief","Article settings and context",()=>{
  const settings={source_urls:input.source_urls||[],audience:"Informed general reader",language:"English",style:"Clear, specific and natural. Explain unfamiliar terms. No exaggerated claims.",client_facts:[],publish_url:"",revision_limit:2,word_tolerance:0.10,banned_phrases:["TODO","[insert","as an AI language model"]};
  const intro=Math.min(160,Math.round(total*.12)),end=Math.min(120,Math.round(total*.08)),body=total-intro-end,n=Math.max(1,Math.ceil(body/360));
  const budgets=[intro,...Array.from({length:n},(_,i)=>Math.floor(body/n)+(i<body%n?1:0)),end];
- return [{topic,word_count:total,settings,budgets,section_count:budgets.length}];
+ const research_query=topic+(/\b(?:hir(?:e|ing)|choos(?:e|ing)|buy(?:ing)?|compar(?:e|ing)|select(?:ing)?)\b/i.test(topic)?" choosing questions experience costs fees agreements terms":"");
+ return [{topic,research_query,word_count:total,settings,budgets,section_count:budgets.length}];
 });
-add("web_research","topic_sources","Read topic evidence",{query:"{{item.topic}}",topic:"{{item.topic}}",sourceUrls:"=item.settings.source_urls",maxPages:4});
+add("web_research","topic_sources","Read topic evidence",{query:"{{item.research_query}}",topic:"{{item.topic}}",sourceUrls:"=item.settings.source_urls",maxPages:4});
 code("research_packet","Prepare verified evidence",()=>{const {items:ignored,...brief}=nodes.brief;return [{...brief,sources:item.sources.filter(s=>s.read&&s.text).map((s,i)=>({id:"S0-"+(i+1),title:s.title,url:s.url,text:s.text}))}];});
 agent("research","Research facts and reader needs","researcher",`STAGE: AIO_RESEARCH\nReturn a compact JSON evidence brief: intent, facts (2–3 short statements with supplied [S0-n] IDs), gaps, angle. At most 110 words total. No headings or Markdown lists. Include important distinctions in the facts. Prefer original evidence; snippets and unavailable pages are not verified. Identify what the evidence cannot support. This is research, not an article. Keep the requested reader decision as the intent; flag irrelevant source topics rather than shifting the guide toward them.\nPacket: {{previous}}`,1400,briefSchema);
 const outlineEnd=partition("outline","Plan strategy, headings and requirements","AIO_OUTLINE",`const original=null,context={topic:nodes.brief.topic,settings:nodes.brief.settings,section_count:nodes.brief.section_count,budgets:nodes.brief.budgets,research:nodes.research.json,sources:nodes.research_packet.sources}`,outlineTasks,assembleOutline);

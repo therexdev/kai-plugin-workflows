@@ -18,6 +18,7 @@
 - Review the current artifact independently without feeding reviewers previous issue lists or another reviewer's findings. Revisions and run history retain those findings, reducing repeated requests to fix already-corrected text.
 - Target outline point corrections identified by JSON field paths as well as headings, including removal of duplicate point content. Heading changes, merges and invalid or broader locations still require a full planning revision.
 - Recheck a known unavailable network model once after a two-second cancellable wait before dispatch. Missing models, fallback order and paid or uncertain request recovery rules are unchanged.
+- Research decision guides using comparison, question, experience, cost and agreement terms alongside the original topic. This prevents repeated place/topic mentions from displacing useful decision evidence; topic validation and the complete-passage size limit are unchanged.
 
 This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 

@@ -111,8 +111,19 @@ test("retry resumes the second section, refreshes evidence and keeps the first s
 test("retry is unavailable for failed writes, uncertain work, or live sibling branches", () => {
   const make = type => ({ status: "failed", spec: { graph: {} }, frames: { root: { graph: { nodes: [{ id: "x", type }] }, states: { x: { status: "failed" } } } } });
   for (const type of ["http_request", "tool_call", "memory", "code"]) assert.equal(Model.canRetryRun(make(type)), false);
+  assert.equal(Model.canRetryRun(make("condition")), true);
   const run = make("agent"); run.inFlight = {}; assert.equal(Model.canRetryRun(run), false); delete run.inFlight;
   run.frames.root.states.other = { status: "running" }; assert.equal(Model.canRetryRun(run), false);
+});
+
+test("retrying a failed pure condition keeps the completed model response",async t=>{
+ const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets});let calls=0,fail=true;
+ const engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[{alias:'local-test',status:'ready'}],runLocal:async()=>{calls++;return JSON.stringify({ready:true});}});t.after(()=>engine.stop());
+ const perform=engine.perform.bind(engine);engine.perform=async(...args)=>{if(args[2].type==='condition'&&fail){fail=false;throw new CompanionError('Expression or code failed: interrupted');}return perform(...args);};
+ const n=Model.node,e=Model.edge,w=engine.save({name:'Condition recovery',model:'local-test',graph:{version:2,nodes:[n('trigger','start'),n('agent','model',null,{prompt:'Return a ready result.'}),n('condition','route',null,{expression:'=item.json.ready'}),n('output','out',null,{text:'Completed'})],edges:[e('start','model'),e('model','route'),e('route','out','true')]}});
+ const id=engine.begin(w.id),failed=await settled(engine,id);assert.equal(failed.status,'failed');assert.equal(calls,1);
+ const saved=structuredClone(failed.frames.root.states.model),plan=engine.retryPlan(id);assert.deepEqual(plan.refreshed,[]);assert.deepEqual(plan.reset.map(r=>r.nodeId),['route']);
+ engine.retry(id,plan.fingerprint);const completed=await settled(engine,id);assert.equal(completed.status,'completed',completed.error);assert.equal(calls,1);assert.deepEqual(completed.frames.root.states.model,saved);assert.equal(completed.retryHistory.length,1);
 });
 
 test("retry keeps completed per-item answers and does not replay a preceding external write", async t => {
@@ -182,4 +193,41 @@ test("passage selection keeps long paragraphs useful and never cuts a sentence i
  const excerpt=selectPassages('AI evidence\n\n'+text,'AI training','AI');
  assert.match(excerpt,/AI training learns from data\./);assert.ok(excerpt.length<=2200);assert.ok(excerpt.endsWith('.'));
  assert.equal(selectPassages('x'.repeat(2400),'x',''), '');
+});
+
+test("decision-guide research retains interview and fee evidence instead of repeated topic mentions",async()=>{
+ const graph=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/aio-article.workflow.json'),'utf8')).workflow.graph;
+ const V=require('../plugin/service/workflow-values'),signal=new AbortController().signal,topic='Hiring a consultant in Chicago';
+ const prepare=async topic=>{
+  const item=(await V.evaluate(graph.nodes.find(n=>n.id==='brief').config.source,{input:{topic,word_count:400,source_urls:['https://evidence.example/guide']}},signal,false))[0];
+  return V.resolve(graph.nodes.find(n=>n.id==='topic_sources').config,{item},signal);
+ };
+ const config=await prepare(topic);
+ const questions='Questions about experience and suitability help compare options. Ask about previous projects; do not assume every provider has the same experience.';
+ const fees='Costs and fees depend on the service. Written agreements must identify applicable charges and exclusions; no total price is promised.';
+ const html='<html><title>Hiring a consultant in Chicago</title>'+Array.from({length:30},(_,i)=>'<p>Hiring a consultant in Chicago requires preparation. This is general directory introduction '+i+'.</p>').join('')+'<h2>Choosing a consultant</h2><p>'+questions+'</p><h2>Fees and agreements</h2><p>'+fees+'</p></html>';
+ const result=await research(config.query,{...config,maxPages:1,privacyMode:()=> 'network',lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}})});
+ assert.equal(config.topic,topic);assert(result.sources[0].text.includes(questions));assert(result.sources[0].text.includes(fees));assert(result.sources[0].text.length<=2200);
+ assert.equal((await prepare('How AI learns')).query,'How AI learns');
+ assert((await prepare('Hiring '+ 'x'.repeat(233))).query.length<=400);
+});
+
+test("research keeps a list's negative introduction attached to its matching bullets",async()=>{
+ const html='<html><head><title>ARDC information</title></head><body><p>About public lawyer information.</p><h2>What does the ARDC not do?</h2><p>The ARDC cannot:</p><ul><li>give legal advice</li><li>change court decisions</li><li>assign lawyers to cases</li></ul><p>Use the lawyer search to check license status.</p></body></html>';
+ const result=await research('ARDC change court decisions lawyers',{topic:'ARDC',sourceUrls:['https://evidence.example/ardc'],maxPages:1,privacyMode:()=> 'network',lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}})});
+ assert.match(result.sources[0].text,/The ARDC cannot:\n- give legal advice\n- change court decisions\n- assign lawyers to cases/);
+ const {selectPassages}=require('../plugin/service/workflow-research');
+ assert.doesNotMatch(selectPassages('The service cannot:\n- '+('change decisions. '.repeat(180))+'\n\nOther information.','change decisions','',500),/change decisions/,'Oversized lists cannot lose their governing qualifier');
+});
+test("quoted HTML attributes and hidden elements cannot leak duplicate markup into page evidence",async()=>{
+ const {fetchPage}=require('../plugin/service/lib/websearch');
+ const html='<html><head><title>Visible page</title><style>hidden-style</style></head><body><div data-model="<p>attribute-only &gt; text</p>"><p>Visible <strong>re</strong>instatement guidance.</p></div><script>hidden-script</script><nav>hidden-nav</nav><footer>hidden-footer</footer></body></html>';
+ const page=await fetchPage('https://evidence.example/page',{lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}}),maxChars:1000});
+ assert.equal(page.title,'Visible page');assert.equal(page.text,'Visible reinstatement guidance.');
+});
+test("page length limits omit whole blocks rather than cutting a condition or list",async()=>{
+ const {fetchPage}=require('../plugin/service/lib/websearch');
+ const html='<p>Useful evidence.</p><p>The service cannot:</p><ul><li>'+('perform this task. '.repeat(100))+'</li><li>except in this situation.</li></ul><p>Another complete paragraph.</p>';
+ const page=await fetchPage('https://evidence.example/page',{lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}}),maxChars:100});
+ assert.equal(page.text,'Useful evidence.\n\nAnother complete paragraph.');
 });

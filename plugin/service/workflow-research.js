@@ -25,6 +25,9 @@ function passageScore(value, query, topic = "") {
 function selectPassages(text, query, topic = "", maxChars = 2200) {
   const blocks = String(text).split(/\n\s*\n/).filter(Boolean).flatMap(block => {
     if (block.length <= maxChars) return [block];
+    // Lists include their governing introduction. An oversized list is not
+    // evidence for isolated bullets whose conditions would be lost.
+    if (/\n- /.test(block)) return [];
     // Long HTML paragraphs are grouped at sentence boundaries, not cut mid-rule.
     const chunks = []; let chunk = "";
     for (const sentence of block.split(/(?<=[.!?])\s+(?=[\p{Lu}\d])/u)) {

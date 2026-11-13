@@ -87,7 +87,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
   }
   retryPlan(key) {
     const run = this.get(key);
-    if (!Model.canRetryRun(run) || this.active.has(key)) throw new CompanionError("This run cannot safely retry a failed model or research step.");
+    if (!Model.canRetryRun(run) || this.active.has(key)) throw new CompanionError("This run cannot safely retry a failed model, research or condition step.");
     if (this.active.size >= 2 || this.store.data.runs.some(r => r.id !== key && r.workflowId === run.workflowId && live(r))) throw new CompanionError("Finish the other active run before retrying this one.");
     const reset = [], refreshed = [];
     for (const [frameId, frame] of Object.entries(run.frames)) for (const [nodeId, state] of Object.entries(frame.states)) {

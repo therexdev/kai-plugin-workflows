@@ -6,7 +6,7 @@
   const object = value => !!value && typeof value === "object" && !Array.isArray(value);
   const types = ["object", "array", "string", "number", "integer", "boolean", "null"];
   const bounds = ["minItems", "maxItems", "minLength", "maxLength", "minimum", "maximum"];
-  const keywords = new Set(["type", "properties", "required", "items", "additionalProperties", "enum", "description", ...bounds]);
+  const keywords = new Set(["type", "properties", "required", "items", "additionalProperties", "enum", "description", "oneOf", ...bounds]);
   function checkSchema(schema = {}, dynamic = false) {
     if (JSON.stringify(schema).length > 12000) throw Error("JSON schema exceeds 12 KB.");
     let count = 0;
@@ -20,6 +20,10 @@
         for (const child of Object.values(s.properties)) visit(child, depth + 1);
       }
       if (s.items !== undefined) visit(s.items, depth + 1);
+      if (s.oneOf !== undefined) {
+        if (!Array.isArray(s.oneOf) || !s.oneOf.length || s.oneOf.length > 8) throw Error("JSON schema oneOf needs 1–8 alternatives.");
+        for (const alternative of s.oneOf) visit(alternative, depth + 1);
+      }
       if (s.required !== undefined && (!Array.isArray(s.required) || s.required.some(k => typeof k !== "string") || new Set(s.required).size !== s.required.length)) throw Error("JSON schema required must be an array of unique field names.");
       if (s.additionalProperties !== undefined && typeof s.additionalProperties !== "boolean") throw Error("JSON schema additionalProperties must be true or false.");
       if (s.enum !== undefined && (!Array.isArray(s.enum) || !s.enum.length || s.enum.length > 100)) throw Error("JSON schema enum needs 1–100 choices.");
@@ -58,6 +62,11 @@
       if (!Number.isFinite(value)) return fail("must be finite.");
       if (schema.minimum !== undefined && value < schema.minimum) return fail("is below " + schema.minimum + ".");
       if (schema.maximum !== undefined && value > schema.maximum) return fail("is above " + schema.maximum + ".");
+    }
+    if (schema.oneOf) {
+      const errors = schema.oneOf.map(alternative => validate(value, alternative, path));
+      const matches = errors.filter(error => !error).length;
+      if (matches !== 1) return fail("must match exactly one schema alternative." + (matches ? "" : " " + errors.join(" ").slice(0, 1200)));
     }
     return "";
   }
@@ -118,18 +127,44 @@
     }
     return !quoted && !stack.length && edits.length ? { text: output, edits } : null;
   }
+  // A complete object/array can be followed by an accidentally repeated root
+  // closer. Remove only that bounded punctuation suffix, never a second value,
+  // prose, a mismatched bracket or content inside the complete JSON value.
+  function trimRepeatedClosers(raw) {
+    if (raw.length > 200000 || !/^[{[]/.test(raw)) return null;
+    const stack = []; let quoted = false, escaped = false;
+    for (let offset = 0; offset < raw.length; offset++) {
+      const c = raw[offset];
+      if (quoted) { if (escaped) escaped = false; else if (c === "\\") escaped = true; else if (c === '"') quoted = false; }
+      else if (c === '"') quoted = true;
+      else if (c === "{" || c === "[") { stack.push(c); if (stack.length > 64) return null; }
+      else if (c === "}" || c === "]") {
+        if (stack.pop() !== (c === "}" ? "{" : "[")) return null;
+        if (!stack.length) {
+          const edits = [];
+          for (let i = offset + 1; i < raw.length; i++) {
+            if (/[\t\r\n ]/.test(raw[i])) continue;
+            if (raw[i] !== c || edits.length >= 8) return null;
+            edits.push({ offset: i, remove: c });
+          }
+          return edits.length ? { text: raw.slice(0, offset + 1), edits, kind: "repeated-trailing-closers" } : null;
+        }
+      }
+    }
+    return null;
+  }
   function inspect(text, schema = {}, allowToolCall = false) {
     const unfenced = unfence(text), afterEcho = removeSchemaEcho(unfenced, schema), raw = afterEcho ?? unfenced;
     let value, recovery;
     try { value = JSON.parse(raw); }
     catch {
-      const repaired = closeContainers(raw);
+      const repaired = trimRepeatedClosers(raw) || closeContainers(raw);
       if (repaired) {
         try {
           const candidate = JSON.parse(repaired.text);
           // Tool arguments are not silently repaired, even for read tools.
           if (!(allowToolCall && object(candidate?.tool)) && !validate(candidate, schema)) {
-            value = candidate; recovery = { kind: "missing-container-closers", edits: repaired.edits };
+            value = candidate; recovery = { kind: repaired.kind || "missing-container-closers", edits: repaired.edits };
           }
         } catch { /* Continue or request a bounded model repair below. */ }
       }

@@ -1,3 +1,30 @@
+# Workflows 0.3.21
+
+- Reduce repeated AIO prompt context while preserving complete source passages, titles, quotations, client facts and section requirements.
+- Keep list introductions attached to their bullets so qualifiers such as “cannot” are not lost. Read quoted HTML attributes correctly and omit oversized blocks without cutting a condition in half.
+- Recover complete, schema-valid JSON followed only by bounded repeated closing punctuation without a paid model call. Retain the original reply and an edit record.
+- Review outlines as plans rather than completed prose, reject unsupported planned details, and retain unaffected outline parts locally when a correction names one section's requirements.
+- Stop at a visible Needs review outline result after unresolved planning checks, before charging for section drafting or publishing extras.
+- State each section's exact target and allowed word range directly in the writing prompt. Use short-paragraph guidance for brief sections and an explicit number of words to remove when shortening.
+- Require review verdicts to agree with their findings through bounded `oneOf` JSON contracts. PASS with positive notes is corrected as a malformed review response rather than triggering repeated content rewrites; real source findings remain blocking.
+- Audit nonempty section drafts before revision even when length or citation checks fail, so the first revision receives factual and mechanical findings together. Keep short-section coaching compact, preserve the requested topic and source scope, and prohibit unsupported assurances in writing.
+- Load bounded workflow history under a separate setup deadline, preserving the existing execution limits for conditions and code. A slow context load no longer consumes a simple condition's execution allowance.
+- Allow explicit retry of failed pure Condition steps while retaining completed model responses. Failed external writes and uncertain in-flight work remain ineligible for retry.
+- Rebuild sections rejected by a source audit from evidence and requirements, retaining rejected prose in history rather than encouraging the reviser to copy unsupported assurances.
+- Retry a failed read-only provider catalog lookup once before generation. Temporary discovery errors can recover without replaying paid work; cancellation and uncertain completion outcomes still stop.
+- Audit the outline's factual premises before drafting and combine source and editorial findings in the same revision. Preserve both sets when reviewer IDs collide, and distinguish supported listing requirements from unsupported assurances of quality or protection.
+
+- Keep optional outline citation additions/removals advisory only when the statement text is identical. Retain the original findings; changed wording, quantities, source reassignment and BLOCKER verdicts still require resolution. Article citation checks are unchanged.
+- Review the current artifact independently without feeding reviewers previous issue lists or another reviewer's findings. Revisions and run history retain those findings, reducing repeated requests to fix already-corrected text.
+- Target outline point corrections identified by JSON field paths, headings or unique exact point text, including removal of duplicate point content. Heading changes, merges, ambiguous point text and invalid or broader locations still require a full planning revision.
+- Recheck a known unavailable network model once after a two-second cancellable wait before dispatch. Missing models, fallback order and paid or uncertain request recovery rules are unchanged.
+- Research decision guides using comparison, question, experience, cost and agreement terms alongside the original topic. This prevents repeated place/topic mentions from displacing useful decision evidence; topic validation and the complete-passage size limit are unchanged.
+- When every blocking finding proposes exactly its quoted evidence as the fix, recheck the unchanged artifact within the existing cycle limit instead of paying to rewrite it. Keep the original error findings and BLOCKER verdicts; persistent non-actionable reviews end as Needs review. Real factual or mechanical corrections still trigger revision.
+
+Automated validation passed 196 tests with one optional-plugin skip on Windows, macOS and Linux, plus all 14 native Core integration checks. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results and live limitations are tracked in PR #18.
+
+Update Workflows, then import the updated AIO researched-article template to adopt its planning and review changes. Existing saved workflows and run history are preserved. Requires Core 0.7.28 or later. The separate Core streaming-recovery change in kai-core PR #25 is not included in this plugin release.
+
 # Workflows 0.3.20
 
 - Rank section-specific passages across all supplied public URLs; retain paragraph boundaries and nearby context instead of repeatedly using page prefixes. Existing public-address and response-size protections remain in force.

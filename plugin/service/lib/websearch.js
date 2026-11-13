@@ -90,6 +90,51 @@ function stripTags(s) {
   return unescapeHtml(String(s).replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 }
 
+// Read visible text without treating a '>' inside a quoted HTML attribute as
+// the end of a tag. Keep each list together with its preceding introduction:
+// selecting an isolated bullet can otherwise turn "cannot" into a claim.
+function pageParagraphs(html) {
+  const blocks = [], hidden = [], list = [];
+  let current = "", listDepth = 0, intro = "";
+  const clean = value => unescapeHtml(value).replace(/\s+/g, " ").trim();
+  const flush = () => {
+    const text = clean(current); current = "";
+    if (text) (listDepth ? list : blocks).push((listDepth ? "- " : "") + text);
+  };
+  const tags = /<!--[\s\S]*?-->|<![^>]*>|<\/?[a-z][\w:-]*\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+  let offset = 0, match;
+  while ((match = tags.exec(html))) {
+    if (!hidden.length) current += html.slice(offset, match.index);
+    offset = tags.lastIndex;
+    const tag = /^<(\/)?([a-z][\w:-]*)/i.exec(match[0]);
+    if (!tag) continue;
+    const close = !!tag[1], name = tag[2].toLowerCase();
+    if (["head", "script", "style", "nav", "header", "footer", "aside"].includes(name)) {
+      if (!close) hidden.push(name);
+      else if (hidden.at(-1) === name) hidden.pop();
+      continue;
+    }
+    if (hidden.length) continue;
+    if (name === "ul" || name === "ol") {
+      if (!close) {
+        flush();
+        if (!listDepth) intro = blocks.pop() || "";
+        listDepth++;
+      } else if (listDepth) {
+        flush(); listDepth--;
+        if (!listDepth) { blocks.push([intro, ...list].filter(Boolean).join("\n")); list.length = 0; intro = ""; }
+      }
+    } else if (name === "li") flush();
+    else if (/^(p|h[1-6]|div|section|article|tr|br|hr)$/.test(name)) {
+      if (listDepth) current += " "; else flush();
+    }
+  }
+  if (!hidden.length) current += html.slice(offset);
+  flush();
+  if (listDepth) blocks.push([intro, ...list].filter(Boolean).join("\n"));
+  return blocks;
+}
+
 /*
  * SSRF guard: only public http(s) targets. The core's own control plane lives
  * on 127.0.0.1 — a prompt-injected "fetch this URL" must never be able to read
@@ -471,18 +516,15 @@ async function fetchPage(url, { fetchImpl = fetch, timeoutMs = FETCH_TIMEOUT_MS,
   if (!/text\/html|text\/plain|application\/xhtml/.test(ctype)) { await r.body?.cancel().catch(() => {}); throw new Error("not a text page"); }
   let html = await pageText(r);
   const title = stripTags((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "").slice(0, 200);
-  // Readability-lite: drop non-content blocks wholesale, then tags.
-  html = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
-    .replace(/<header[\s\S]*?<\/header>/gi, " ")
-    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
-    .replace(/<aside[\s\S]*?<\/aside>/gi, " ");
   // Retain paragraph boundaries so callers can select a relevant passage
   // without joining an exception or condition to an unrelated paragraph.
-  const text = html.split(/<\/(?:p|li|h[1-6]|div|section)>|<br\s*\/?>/i)
-    .map(stripTags).filter(Boolean).join("\n\n").slice(0, maxChars);
+  const readable = []; let length = 0;
+  for (const block of pageParagraphs(html)) {
+    const bytes = block.length + (readable.length ? 2 : 0);
+    if (length + bytes > maxChars) continue;
+    readable.push(block); length += bytes;
+  }
+  const text = readable.join("\n\n");
   if (!text) throw new Error("no readable text");
   const probe = (title + " " + text.slice(0, 1600)).toLowerCase();
   if (text.length < 2500 && [

@@ -63,7 +63,7 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
    content=JSON.stringify({lines:task.key==="meta"?["Understanding how artificial intelligence works","Explain training versus inference",...Array.from({length:task.count-2},(_,i)=>"AI topic "+(i+1))]:["Explain the evidence","Give a useful example"]});
   }
   else if(stage==="AIO_COACH")content=JSON.stringify({focus:"Explain training simply",facts:[{claim:"AI training learns from data.",source_id:JSON.parse(p.match(/Packet: (.+)/)[1]).sources[0].id,quote:"AI training learns from data."}],gaps:"Limited evidence."});
-  else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]);content=Array(a.section.word_count).fill("Evidence").join(" ");}
+  else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]);assert.ok(p.includes("Write about "+a.section.word_count+" words"));content=Array(a.section.word_count).fill("Evidence").join(" ");}
   else if(stage.endsWith("_FACTS")){content=JSON.stringify({verdict:stuck?"CHANGE_REQUEST":"PASS",items:stuck?[{id:"unsupported",severity:"error",location:"section",evidence:"Unsupported claim",fix:"Remove the unsupported claim"}]:[],...(stage.startsWith("SECTION")?{summary:"AI learns from data."}:{})});}
   else if(stage.endsWith("_REVIEW")){
    let needs=false;if(stage==="SECTION_REVIEW_REVIEW"){const a=packet();needs=stuck||!a.artifact.includes("[S");}
@@ -150,7 +150,7 @@ test('length revisions get one explicit rewrite instruction and retain the factu
  const issue={id:'words',severity:'error',code:'words',message:'Outside range',actual:203,min:144,max:176};
  const state={artifact:'Draft',context:{section:{word_count:160}},cycle:0,limit:2,history:[],checks:{valid:false,issues:[issue],metrics:[{type:'words',actual:203,min:144,max:176}]}};
  const output=(await V.evaluate(judge.config.source,{item:{json:{verdict:'CHANGE_REQUEST',items:[{id:'words',severity:'error',location:'$',evidence:'203 words',fix:'Write 144–176 words.'}],summary:''}},nodes:{section_review_checks:state}},signal,false))[0];
- assert.equal(output.prior.length,1);assert.equal(output.prior[0].fix,'Write 144–176 words.');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
+ assert.equal(output.prior.length,1);assert.equal(output.prior[0].fix,'Write 144–176 words.');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/Remove about 43 words/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
  assert.equal(output.needsRevision,true);assert.equal(output.status,'Needs review');
  const revise=graph.nodes.find(n=>n.id==='section_review_revise');assert.match(revise.config.prompt,/Mandatory revision: \{\{item.revisionInstruction\}\}/);
  assert.ok(graph.edges.some(e=>e.from==='section_review_ready'&&e.to==='section_review_facts'));

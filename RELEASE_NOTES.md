@@ -5,8 +5,9 @@
 - Recover complete, schema-valid JSON followed only by bounded repeated closing punctuation without a paid model call. Retain the original reply and an edit record.
 - Review outlines as plans rather than completed prose, reject unsupported planned details, and retain unaffected outline parts locally when a correction names one section's requirements.
 - Stop at a visible Needs review outline result after unresolved planning checks, before charging for section drafting or publishing extras.
+- State each section's exact target and allowed word range directly in the writing prompt. Use short-paragraph guidance for brief sections and an explicit number of words to remove when shortening.
 
-Local automated validation: 181 passed, 0 failed, 1 skipped. Live end-to-end verification and native CI checks are in progress. This candidate has not been signed or published.
+This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 
 # Workflows 0.3.20
 

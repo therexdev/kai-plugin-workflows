@@ -19,6 +19,7 @@
 - Target outline point corrections identified by JSON field paths as well as headings, including removal of duplicate point content. Heading changes, merges and invalid or broader locations still require a full planning revision.
 - Recheck a known unavailable network model once after a two-second cancellable wait before dispatch. Missing models, fallback order and paid or uncertain request recovery rules are unchanged.
 - Research decision guides using comparison, question, experience, cost and agreement terms alongside the original topic. This prevents repeated place/topic mentions from displacing useful decision evidence; topic validation and the complete-passage size limit are unchanged.
+- When every blocking finding proposes exactly its quoted evidence as the fix, recheck the unchanged artifact within the existing cycle limit instead of paying to rewrite it. Keep the original error findings and BLOCKER verdicts; persistent non-actionable reviews end as Needs review. Real factual or mechanical corrections still trigger revision.
 
 This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 

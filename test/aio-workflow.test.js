@@ -77,6 +77,35 @@ test('outline factual and editorial findings share the first revision without lo
  assert.deepEqual(result.history[0].issues.map(i=>i.id),['source-wrong-agency','wrong-agency']);
  assert.deepEqual(calls,['OUTLINE_REVIEW_FACTS','OUTLINE_REVIEW_REVIEW','OUTLINE_REVIEW_REVISE','OUTLINE_REVIEW_REVISE','OUTLINE_REVIEW_FACTS','OUTLINE_REVIEW_REVIEW']);
 });
+test('identical evidence and fix repeat review without rewriting or waiving unresolved findings',async t=>{
+ for(const scenario of ['resolves','repeats','blocker']){
+  const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),full=Transfer.parseDocument(source),M=require('../plugin/workflow-model');
+  const nodes=full.graph.nodes.filter(n=>n.id.startsWith('outline_review')),ids=new Set(nodes.map(n=>n.id)),calls=[];
+  nodes.push(M.node('trigger','start'),M.node('output','out',undefined,{text:'{{previous}}'}));
+  const edges=full.graph.edges.filter(e=>ids.has(e.from)&&ids.has(e.to));edges.push(M.edge('start','outline_review'),M.edge('outline_review','out','done'));
+  let audits=0;const sentence='Review written agreements before hiring.';
+  f.api.network.models=async()=>[{model:'gemma3-12b',available:true,maxOutput:256}];
+  f.api.wallet={authorize:async()=>{},complete:async request=>{
+   const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let value;
+   if(stage==='OUTLINE_REVIEW_FACTS'){
+    const bad=++audits===1||scenario!=='resolves';
+    value={verdict:bad?(scenario==='blocker'?'BLOCKER':'CHANGE_REQUEST'):'PASS',items:bad?[{id:'agreement',severity:'error',location:'Next steps',evidence:sentence,fix:sentence}]:[]};
+   }else{assert.equal(stage,'OUTLINE_REVIEW_REVIEW','A no-op finding must not spend on artifact revision');value={verdict:'PASS',items:[]};}
+   return {choices:[{message:{content:JSON.stringify(value)},finish_reason:'stop'}],usage:{completion_tokens:80},koin:{state:'charged'}};
+  }};
+  const inference=createInference(f.api,async()=>{}),engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[],runLocal:o=>inference.run(o),canReviewNetwork:()=>true,privacyMode:()=> 'network'});t.after(()=>engine.stop());
+  const artifact={title:'Choose a provider',angle:'Check evidence',sections:[{heading:'Compare options',points:['Ask about experience','Ask about fees']},{heading:'Next steps',points:[sentence,'Keep a copy']}]};
+  const context={topic:'Choose a provider',section_count:2,budgets:[100,100],settings:{},sources:[{id:'S0-1',text:sentence}]};
+  const saved=engine.save({...full,graph:{version:2,nodes,edges}}),id=engine.begin(saved.id,{artifact,context,cycle:0,limit:2,prior:[],history:[],reviewed:false});
+  let run;for(let i=0;i<6000;i++){run=engine.get(id);if(run.status!=='running')break;await new Promise(r=>setTimeout(r,5));}
+  assert.equal(run.status,'completed',run.error);const result=run.frames.root.states.outline_review.outputs.done[0];
+  assert.deepEqual(result.artifact,artifact);assert.equal(result.status,scenario==='resolves'?'Passed checks':'Needs review');
+  assert.equal(audits,scenario==='resolves'?2:3);assert.equal(result.cycle,scenario==='resolves'?1:2);
+  assert.equal(result.history[0].repeatReview,true);assert.equal(result.history[0].issues[0].severity,'error');
+  if(scenario==='blocker')assert.equal(result.review.verdict,'BLOCKER');
+  assert(!calls.some(s=>s.endsWith('_REVISE')));
+ }
+});
 test('optional outline citation toggles stay advisory without waiving factual changes or blockers',async()=>{
  const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
  const sentence='Listed providers must carry insurance.',finding={id:'same',severity:'error',location:'Eligibility',evidence:sentence,fix:'Listed providers must carry insurance [S0-1].'};
@@ -92,10 +121,13 @@ test('optional outline citation toggles stay advisory without waiving factual ch
  }
  const real={...finding,id:'guarantee',evidence:'Membership guarantees competence.',fix:'Delete the unsupported guarantee.'};
  const mixed=await judge([finding,real]);assert.equal(mixed.status,'Needs review');assert.equal(mixed.prior.find(i=>i.id==='source-guarantee').severity,'error');
+ assert.equal((await judge([{...finding,fix:sentence},real])).repeatReview,false,'Actual factual changes still require a revision');
  assert.equal((await judge([finding],'BLOCKER')).status,'Needs review');
  const section={...packet,artifact:sentence,context:{section:{word_count:160}},checks:{valid:true,issues:[],metrics:[{type:'words',actual:160,min:144,max:176}]}};
  const kept=(await V.evaluate(graph.nodes.find(n=>n.id==='section_review_judge').config.source,{item:{json:{verdict:'CHANGE_REQUEST',items:[finding],summary:''},sourceAudit:true},nodes:{section_review_checks:section}},signal,false))[0];
  assert.equal(kept.status,'Needs review');assert.equal(kept.history[0].citationOnlyFindings.length,0);
+ packet.checks.valid=false;packet.checks.issues=[{id:'check-0-0',severity:'error',code:'schema',message:'Required field missing.'}];
+ assert.equal((await judge([{...finding,fix:sentence}])).repeatReview,false,'Mechanical errors still require a revision');
 });
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved drafts without approving them":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{

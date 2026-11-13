@@ -34,7 +34,9 @@ test('a targeted outline correction preserves unrelated headings and requirement
  for(const location of ['Ask about costs section','Section: ASK ABOUT COSTS','sections[1].points[0]','$.sections[1].points','sections[1].points[1]']){
   const targeted=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[{...prior[0],location}]}}))[0];assert.deepEqual(targeted.tasks.map(t=>t.index),[1]);
  }
- for(const finding of [{...prior[0],location:'$'},{...prior[0],fix:'Rename this heading.'},...['sections[1].heading','sections[9].points[0]','sections[1].points[9]','sections[1].points[0].unknown'].map(location=>({...prior[0],location}))]){
+ const duplicatePoint=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[{...prior[0],location:'sections[1].points[0]',fix:'Remove duplicate content, keep in section 0.'}]}}))[0];
+ assert.deepEqual(duplicatePoint.tasks.map(t=>t.index),[1]);
+ for(const finding of [{...prior[0],location:'$'},{...prior[0],fix:'Rename this heading.'},{...prior[0],fix:'Merge duplicate headings.'},...['sections[1].heading','sections[9].points[0]','sections[1].points[9]','sections[1].points[0].unknown'].map(location=>({...prior[0],location}))]){
   const full=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[finding]}}))[0];assert.equal(full.tasks.length,4);assert.deepEqual(full.values,[]);
  }
 });

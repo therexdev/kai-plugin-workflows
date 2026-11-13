@@ -8,9 +8,10 @@
       const host=document.querySelector('.wf-workspace').parentElement;
       window.KaiWorkflows.render(host,{state,section:'templates',manage:(action,input={})=>window.kai.call('workflows.'+action,input),navigate:async()=>{}});
       document.querySelector('[data-wf=template][data-id=aio]').click();
-      return {nodes:imported.graph.nodes.length,hasQuality:!!window.KaiWorkflowQuality,hasTemplate:!!document.querySelector('[data-wf=template][data-id=aio]')};
+      return {nodeIds:imported.graph.nodes.map(n=>n.id),hasQuality:!!window.KaiWorkflowQuality,hasTemplate:!!document.querySelector('[data-wf=template][data-id=aio]')};
     })()`);
-    assert.equal(result.nodes,85);assert.equal(result.hasQuality,true);
+    const expected=JSON.parse(fs.readFileSync(path.join(sources,'kai-plugin-workflows/plugin/templates/aio-article.workflow.json'),'utf8')).workflow.graph;
+    assert.deepEqual(result.nodeIds,expected.nodes.map(n=>n.id));assert.equal(result.hasQuality,true);
     await until(()=>appEval(id,'!!document.querySelector("[data-node=section_review_checks]")'),"AIO template did not open");
     await appEval(id,'document.querySelector("[data-node=section_review_checks]").click();true');
     const checkFields=await appEval(id,'({field:document.querySelector("[data-field=\\\"config.rules.2.sources\\\"]")?.value,onFailure:document.querySelector("[data-field=\\\"config.onFailure\\\"]")?.value})');

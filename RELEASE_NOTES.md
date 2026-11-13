@@ -11,6 +11,8 @@
 - Load bounded workflow history under a separate setup deadline, preserving the existing execution limits for conditions and code. A slow context load no longer consumes a simple condition's execution allowance.
 - Allow explicit retry of failed pure Condition steps while retaining completed model responses. Failed external writes and uncertain in-flight work remain ineligible for retry.
 - Rebuild sections rejected by a source audit from evidence and requirements, retaining rejected prose in history rather than encouraging the reviser to copy unsupported assurances.
+- Retry a failed read-only provider catalog lookup once before generation. Temporary discovery errors can recover without replaying paid work; cancellation and uncertain completion outcomes still stop.
+- Audit the outline's factual premises before drafting and combine source and editorial findings in the same revision. Preserve both sets when reviewer IDs collide, and distinguish supported listing requirements from unsupported assurances of quality or protection.
 
 This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 

@@ -49,6 +49,32 @@ test('an unresolved outline delivers its findings without starting paid drafting
   if(status==='Needs review'){assert.match(run.output[0].text,/Status: Needs review/);assert.match(run.output[0].text,/Remove the unsupported requirement/);assert.equal(run.frames.root.states.draft.status,'skipped');}
  }
 });
+test('outline factual and editorial findings share the first revision without losing colliding IDs',async t=>{
+ const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),full=Transfer.parseDocument(source),M=require('../plugin/workflow-model');
+ const nodes=full.graph.nodes.filter(n=>n.id.startsWith('outline_review')),ids=new Set(nodes.map(n=>n.id)),calls=[];
+ nodes.push(M.node('trigger','start'),M.node('output','out',undefined,{text:'{{previous}}'}));
+ const edges=full.graph.edges.filter(e=>ids.has(e.from)&&ids.has(e.to));edges.push(M.edge('start','outline_review'),M.edge('outline_review','out','done'));
+ let revised=false;
+ f.api.network.models=async()=>[{model:'gemma3-12b',available:true,maxOutput:256}];
+ f.api.wallet={authorize:async()=>{},complete:async request=>{
+  const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let value;
+  if(stage==='OUTLINE_REVIEW_FACTS')value={verdict:revised?'PASS':'CHANGE_REQUEST',items:revised?[]:[{id:'wrong-agency',severity:'error',location:'Check licensing',evidence:'Get a licence from the directory',fix:'Check the licence with the Licensing Board.'}]};
+  else if(stage==='OUTLINE_REVIEW_REVISE'){const task=JSON.parse(p.match(/Task: (.+)/)[1]);assert.ok([0,1].includes(task.index));revised=task.index===1;value={lines:task.index===0?['Check the licence with the Licensing Board','Ask about relevant experience']:['Ask which services the fee covers','Request written terms']};}
+  else {assert.equal(stage,'OUTLINE_REVIEW_REVIEW');value={verdict:revised?'PASS':'CHANGE_REQUEST',items:revised?[]:[{id:'wrong-agency',severity:'error',location:'Discuss costs',evidence:'Ask about fees',fix:'Ask which services the fee covers.'}]};}
+  return {choices:[{message:{content:JSON.stringify(value)},finish_reason:'stop'}],usage:{completion_tokens:100},koin:{state:'charged'}};
+ }};
+ const inference=createInference(f.api,async()=>{}),engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[],runLocal:o=>inference.run(o),canReviewNetwork:()=>true,privacyMode:()=> 'network'});t.after(()=>engine.stop());
+ const artifact={title:'Choose a provider',angle:'Check relevant qualifications',sections:[{heading:'Check licensing',points:['Get a licence from the directory','Ask about relevant experience']},{heading:'Discuss costs',points:['Ask about fees','Request written terms']},{heading:'Next steps',points:['Compare the options','Ask remaining questions']}]};
+ const context={topic:'Choose a provider',section_count:3,budgets:[100,100,100],settings:{},sources:[{id:'S0-1',text:'The directory lists members. Only the Licensing Board issues licences.'}]};
+ const saved=engine.save({...full,graph:{version:2,nodes,edges}}),id=engine.begin(saved.id,{artifact,context,cycle:0,limit:2,prior:[],history:[],reviewed:false});
+ let run;for(let i=0;i<6000;i++){run=engine.get(id);if(run.status!=='running')break;await new Promise(r=>setTimeout(r,5));}
+ assert.equal(run.status,'completed',run.error);const result=run.frames.root.states.outline_review.outputs.done[0];
+ assert.equal(result.status,'Passed checks');assert.equal(result.cycle,1);
+ assert.deepEqual(result.artifact.sections.slice(2),artifact.sections.slice(2));
+ assert.equal(result.artifact.sections[1].points[0],'Ask which services the fee covers');
+ assert.deepEqual(result.history[0].issues.map(i=>i.id),['source-wrong-agency','wrong-agency']);
+ assert.deepEqual(calls,['OUTLINE_REVIEW_FACTS','OUTLINE_REVIEW_REVIEW','OUTLINE_REVIEW_REVISE','OUTLINE_REVIEW_REVISE','OUTLINE_REVIEW_FACTS','OUTLINE_REVIEW_REVIEW']);
+});
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved drafts without approving them":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{
  const f=fixture(t,"kai.workflows"),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),calls=[];

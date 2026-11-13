@@ -10,7 +10,7 @@ const networkModel = model => typeof model === "string" && /^koinos-network:[a-z
 const credits = value => { const n = BigInt(value); return `${n / 100000n}.${String(n % 100000n).padStart(5, "0")}`.replace(/\.?0+$/, ""); };
 
 function createInference(api, recordResult) {
-  let catalog = [], error = "", checkedAt = 0, pending, queue = Promise.resolve();
+  let catalog = [], error = "", checkedAt = 0, catalogReadFailed = false, pending, queue = Promise.resolve();
   const local = () => api.models.list().filter(m => !/^(desktop:|koinos-network)/.test(m.alias));
   const list = () => {
     const models = new Map(local().map(m => [m.alias, { ...m, source: "local", localStatus: m.status, networkStatus: "unknown" }]));
@@ -25,10 +25,14 @@ function createInference(api, recordResult) {
     active(api);
     if (pending) return pending;
     pending = (async () => {
+      catalogReadFailed = false;
       try {
         if (api.network.status().privacyMode === "local-only") throw new CompanionError("Local-Only is on. Choose an online privacy mode in Core Settings to use KAI network models.");
         if (!api.network.models || !api.wallet?.authorize) throw new CompanionError("Update Core to use KAI network models in Workflows.");
-        const rows = await api.network.models(); active(api);
+        let rows;
+        try { rows = await api.network.models(); }
+        catch (e) { catalogReadFailed = true; throw e; }
+        active(api);
         if (!Array.isArray(rows)) throw Error("Network model catalog is unavailable.");
         const seen = new Set();
         catalog = rows.filter(row => row && /^[a-zA-Z0-9._-]{1,100}$/.test(row.model) && !seen.has(row.model) && seen.add(row.model)).map(row => ({
@@ -182,7 +186,16 @@ function createInference(api, recordResult) {
         if (api.network.status().privacyMode === "local-only") { unavailableMessage = "Local-Only is on. Choose an online privacy mode in Core Settings to use KAI network models, or select a ready local model."; break; }
         await refresh(); active(api, signal);
         const chosen = catalog.find(m => m.alias === model && m.status === "ready");
-        if (!chosen) { unavailableMessage = error; break; }
+        if (!chosen) {
+          unavailableMessage = error;
+          // Discovery is read-only and no completion has started. Retry this
+          // failed lookup once; never extend paid or uncertain request retries.
+          if (catalogReadFailed && freshnessAttempt === 0) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+            continue;
+          }
+          break;
+        }
         if (!await canRun(options.runId, options.workflowName)) throw new CompanionError("Open Workflows to review this KAI network request.");
         if (Buffer.byteLength(JSON.stringify(messages)) > 24000) throw new CompanionError("This network step exceeds the 24 KB message limit. Shorten its input or use a local model.");
         // The public credits API can return a verified terminal prefix with

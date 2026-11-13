@@ -70,6 +70,30 @@ test("stale availability refreshes the selected model once before stopping", asy
   assert.equal(attempts, 2); assert.equal(refreshes, 2); assert.equal(f.saved.length, 0);
 });
 
+test("a failed read-only provider lookup is retried once before generation", async t => {
+  for (const permanent of [false, true]) {
+    const f = setup(t); let refreshes = 0, generations = 0;
+    f.api.network.models = async () => {
+      if (++refreshes === 1 || permanent) throw Error("The network returned an invalid response (HTTP 502) while checking network providers.");
+      return [{ model: "test-network", available: true, maxOutput: 256 }];
+    };
+    f.api.wallet.complete = async () => { generations++; return { choices: [{ message: { content: "Recovered answer" }, finish_reason: "stop" }] }; };
+    const result = f.inference.run({ model: ALIAS, prompt: "Continue the current step" });
+    if (permanent) await assert.rejects(result, /HTTP 502/);
+    else assert.equal(await result, "Recovered answer");
+    assert.equal(refreshes, 2); assert.equal(generations, permanent ? 0 : 1);
+    assert.equal(f.saved.length, permanent ? 0 : 1);
+  }
+});
+
+test("cancellation during provider discovery prevents another lookup or generation", async t => {
+  const f = setup(t), controller = new AbortController(); let refreshes = 0, generations = 0;
+  f.api.network.models = async () => { refreshes++; controller.abort(); throw Error("HTTP 502"); };
+  f.api.wallet.complete = async () => { generations++; throw Error("Must not generate"); };
+  await assert.rejects(f.inference.run({ model: ALIAS, prompt: "Cancelled", signal: controller.signal }), /abort/i);
+  assert.equal(refreshes, 1); assert.equal(generations, 0);
+});
+
 test("fallback selection never retries an ambiguous outcome, a single model, or a partial response", async t => {
   for (const scenario of ["unknown", "code-only", "explicit", "partial", "cancel", "privacy", "no-provider"]) {
     const f = setup(t); let attempts = 0;

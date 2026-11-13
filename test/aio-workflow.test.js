@@ -31,7 +31,7 @@ test('a targeted outline correction preserves unrelated headings and requirement
  const collected=(await evaluate('outline_review_revise_collect',{item:{json:{lines:revised}},nodes:{outline_review_revise_task:assigned}}))[0];
  const result=(await evaluate('outline_review_revise_done',{item:collected}))[0].json;
  assert.deepEqual(result,{...original,sections:original.sections.map((s,i)=>i===1?{...s,points:revised}:s)});
- for(const location of ['Ask about costs section','Section: ASK ABOUT COSTS','sections[1].points[0]','$.sections[1].points','sections[1].points[1]']){
+ for(const location of ['Ask about costs section','Section: ASK ABOUT COSTS','Sections: ASK ABOUT COSTS','sections[1].points[0]','$.sections[1].points','sections[1].points[1]']){
   const targeted=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[{...prior[0],location}]}}))[0];assert.deepEqual(targeted.tasks.map(t=>t.index),[1]);
  }
  const duplicatePoint=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[{...prior[0],location:'sections[1].points[0]',fix:'Remove duplicate content, keep in section 0.'}]}}))[0];

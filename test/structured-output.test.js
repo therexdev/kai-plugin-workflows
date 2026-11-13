@@ -21,6 +21,24 @@ function setup(t, responses, options = {}) {
   const inference = createInference(f.api, (part, run) => { saved.push({ ...part, run }); order.push("save"); });
   return { ...f, calls, saved, order, run: extra => inference.run({ model: "gemma3-12b", modelSource: "network", runId: "existing-run", workflowName: "Article", prompt: "Create exactly five sections.", outputFormat: "json", outputSchema: contract, maxTokens: 2400, maxContinuations: 16, ...options, ...extra }) };
 }
+test('oneOf contracts require exactly one bounded alternative',()=>{
+ const schema={oneOf:[{type:'integer'},{type:'string',minLength:1}]};Output.checkSchema(schema);
+ assert.equal(Output.validate(2,schema),'');assert.equal(Output.validate('two',schema),'');assert.ok(Output.validate(false,schema));
+ assert.ok(Output.validate(2,{oneOf:[{type:'number'},{type:'integer'}]}));
+ assert.equal(Output.validate(2.5,{oneOf:[{type:'number'},{type:'integer'}]}),'');
+ for(const oneOf of [[],{},Array(9).fill({}),[null]])assert.throws(()=>Output.checkSchema({oneOf}));
+ let deep={};for(let i=0;i<14;i++)deep={oneOf:[deep]};assert.throws(()=>Output.checkSchema(deep),/12 levels/);
+});
+test('contradictory review verdicts use bounded format repair without losing real findings',async t=>{
+ const schema=require('../examples/aio-article.workflow.json').workflow.graph.nodes.find(n=>n.id==='section_review_facts').config.outputSchema;
+ for(const positive of [true,false]){
+  const issue={id:'condition',severity:'warning',location:'Paragraph 1',evidence:positive?'The condition is preserved.':'A condition was omitted.',fix:positive?'Condition preserved; no change needed.':'Restore the missing condition.'};
+  const raw={verdict:'PASS',items:[issue],summary:'A concise summary.'},corrected={...raw,verdict:positive?'PASS':'CHANGE_REQUEST',items:positive?[]:[issue]};
+  assert.equal(Output.inspect(JSON.stringify(raw),schema).valid,false);assert.equal(Output.validate(corrected,schema),'');
+  const f=setup(t,[reply(JSON.stringify(raw)),reply(JSON.stringify(corrected))],{outputSchema:schema,maxFormatRepairs:1});
+  assert.deepEqual(JSON.parse(await f.run()),corrected);assert.equal(f.calls.length,2);assert.equal(f.saved[1].purpose,'repair');assert.equal(f.saved[0].completion.choices[0].message.content,JSON.stringify(raw));
+ }
+});
 test("the reported Gemma truncation continues despite stop, null or missing finish reason, then validates five sections", async t => {
   for (const finish of ["stop", null, undefined]) {
     const first = reply(truncated, finish, 498); if (finish === undefined) delete first.choices[0].finish_reason;

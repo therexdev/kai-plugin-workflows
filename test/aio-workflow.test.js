@@ -179,12 +179,13 @@ test('a reviewer cannot revive a resolved mechanical error from prior history',a
  const active=await judgeWith([old]);assert.equal(active.status,'Needs review');assert.equal(active.history[0].ignoredModelFindings.length,0);
 });
 
-test('a complete source-audit quotation fits the schema without a paid formatting repair',()=>{
+test('long audit evidence remains valid when the verdict agrees with its findings',()=>{
  const graph=Transfer.parseDocument(source).graph,Output=require('../plugin/workflow-output'),reply=require('./fixtures/aio-audit-long-evidence.json');
  assert.ok(reply.items[0].evidence.length>220);
  const schema=graph.nodes.find(n=>n.id==='section_review_facts').config.outputSchema;
- assert.equal(Output.validate(reply,schema),'');
- const tooLarge=structuredClone(reply);tooLarge.items[0].evidence='x'.repeat(601);assert.ok(Output.validate(tooLarge,schema));
+ assert.ok(Output.validate(reply,schema),'PASS with findings is contradictory even when the quotation fits');
+ const consistent={...reply,verdict:'CHANGE_REQUEST'};assert.equal(Output.validate(consistent,schema),'');
+ const tooLarge=structuredClone(consistent);tooLarge.items[0].evidence='x'.repeat(601);assert.ok(Output.validate(tooLarge,schema));
 });
 
 test('a short section receives only the missing paragraph and the combined draft is rechecked',async()=>{

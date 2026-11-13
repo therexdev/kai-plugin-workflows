@@ -119,6 +119,8 @@ Workflows **0.3.12** includes [Researched article](../examples/researched-articl
 
 All three use a manual trigger, two Agent steps and a result in run history. Choose an installed local model or refresh and choose a KAI network model as the default before saving. You can also override the model on individual Agent nodes to mix local and network inference. They do not fetch live sources, publish, send messages or write to Brain. Their output quality depends on the selected model and the supplied input. Automated tests exercise import, save and execution with synthetic local and network model responses; they do not evaluate writing quality on a real model.
 
+Agent JSON output contracts support bounded `oneOf` alternatives (1–8 branches), within the existing 12 KB, 12-level and 256-field schema limits. No schema code or remote references are accepted. The AIO template in Workflows 0.3.21 uses this to require an empty findings list for PASS, and at least one finding for CHANGE_REQUEST or BLOCKER. Contradictory replies receive the configured bounded format repair before they can trigger content revisions; genuine source warnings still require resolution. Import the updated template to adopt these contracts.
+
 ## Release validation
 
 Run `npm test`, `node scripts/verify-package.js --source` and the native integration tests with sibling Brain and Connections repositories available. Before publishing, exercise the native file pickers in installed Core on Windows, macOS and Linux; verify cancellation, Unicode filenames, re-import, locale changes and draft review. Then follow the existing publisher signing and catalog process in the README. Source validation and a version bump alone do not create a signed update.

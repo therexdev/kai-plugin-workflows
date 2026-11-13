@@ -6,6 +6,7 @@
 - Review outlines as plans rather than completed prose, reject unsupported planned details, and retain unaffected outline parts locally when a correction names one section's requirements.
 - Stop at a visible Needs review outline result after unresolved planning checks, before charging for section drafting or publishing extras.
 - State each section's exact target and allowed word range directly in the writing prompt. Use short-paragraph guidance for brief sections and an explicit number of words to remove when shortening.
+- Require review verdicts to agree with their findings through bounded `oneOf` JSON contracts. PASS with positive notes is corrected as a malformed review response rather than triggering repeated content rewrites; real source findings remain blocking.
 
 This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 

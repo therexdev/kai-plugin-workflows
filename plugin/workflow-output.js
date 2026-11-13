@@ -118,18 +118,44 @@
     }
     return !quoted && !stack.length && edits.length ? { text: output, edits } : null;
   }
+  // A complete object/array can be followed by an accidentally repeated root
+  // closer. Remove only that bounded punctuation suffix, never a second value,
+  // prose, a mismatched bracket or content inside the complete JSON value.
+  function trimRepeatedClosers(raw) {
+    if (raw.length > 200000 || !/^[{[]/.test(raw)) return null;
+    const stack = []; let quoted = false, escaped = false;
+    for (let offset = 0; offset < raw.length; offset++) {
+      const c = raw[offset];
+      if (quoted) { if (escaped) escaped = false; else if (c === "\\") escaped = true; else if (c === '"') quoted = false; }
+      else if (c === '"') quoted = true;
+      else if (c === "{" || c === "[") { stack.push(c); if (stack.length > 64) return null; }
+      else if (c === "}" || c === "]") {
+        if (stack.pop() !== (c === "}" ? "{" : "[")) return null;
+        if (!stack.length) {
+          const edits = [];
+          for (let i = offset + 1; i < raw.length; i++) {
+            if (/[\t\r\n ]/.test(raw[i])) continue;
+            if (raw[i] !== c || edits.length >= 8) return null;
+            edits.push({ offset: i, remove: c });
+          }
+          return edits.length ? { text: raw.slice(0, offset + 1), edits, kind: "repeated-trailing-closers" } : null;
+        }
+      }
+    }
+    return null;
+  }
   function inspect(text, schema = {}, allowToolCall = false) {
     const unfenced = unfence(text), afterEcho = removeSchemaEcho(unfenced, schema), raw = afterEcho ?? unfenced;
     let value, recovery;
     try { value = JSON.parse(raw); }
     catch {
-      const repaired = closeContainers(raw);
+      const repaired = trimRepeatedClosers(raw) || closeContainers(raw);
       if (repaired) {
         try {
           const candidate = JSON.parse(repaired.text);
           // Tool arguments are not silently repaired, even for read tools.
           if (!(allowToolCall && object(candidate?.tool)) && !validate(candidate, schema)) {
-            value = candidate; recovery = { kind: "missing-container-closers", edits: repaired.edits };
+            value = candidate; recovery = { kind: repaired.kind || "missing-container-closers", edits: repaired.edits };
           }
         } catch { /* Continue or request a bounded model repair below. */ }
       }

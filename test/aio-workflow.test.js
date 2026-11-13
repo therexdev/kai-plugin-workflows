@@ -2,6 +2,21 @@
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),{fixture}=require("./helper"),{createInference}=require("../plugin/service/workflow-inference"),{CompanionStore}=require("../plugin/service/companion-store"),{CompanionWorkflows}=require("../plugin/service/companion-workflows"),Transfer=require("../plugin/service/workflow-transfer");
 const source=fs.readFileSync(path.join(__dirname,"../examples/aio-article.workflow.json"),"utf8");
 const lookup=async()=>[{address:"8.8.8.8",family:4}];
+test('concise model context preserves complete evidence, conditions and requirements',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values');
+ const passage='This service cannot provide legal advice.\n- It cannot change court decisions. '+ 'Complete evidence. '.repeat(120);
+ const quote={id:'S1-1',text:passage},section={heading:'Check eligibility',points:['Preserve every condition'],word_count:344};
+ const context={topic:'Hiring an attorney',settings:{audience:'Residents',language:'English',style:'Clear',client_facts:['Verified client fact'],banned_phrases:['Guarantee'],source_urls:['https://example.org'],revision_limit:2},section,previous_section:'Earlier supported text',sources:[{id:'S1-1',title:'Referral eligibility',url:'https://example.org',text:passage}],article:[{heading:section.heading,requirements:section.points,status:'Passed checks',summary:'A conditional summary',evidence:[quote,quote]}],source_quotations:[quote,quote]};
+ const item={artifact:'Current artifact',context,prior:[{id:'finding'}]};
+ const output=(await V.evaluate(graph.nodes.find(n=>n.id==='section_review_prompt_context').config.source,{item},new AbortController().signal,false))[0];
+ assert.deepEqual(output.context,context);assert.equal(output.artifact,item.artifact);assert.deepEqual(output.prior,item.prior);
+ assert.deepEqual(output.prompt_context.sources,[{id:'S1-1',title:'Referral eligibility',text:passage}]);
+ assert.deepEqual(output.prompt_context.section,section);assert.deepEqual(output.prompt_context.source_quotations,[quote]);
+ assert.deepEqual(output.prompt_context.settings.client_facts,context.settings.client_facts);
+ assert.deepEqual(output.prompt_context.settings.banned_phrases,['Guarantee']);
+ assert.equal(output.prompt_context.article[0].evidence,undefined);assert.equal(output.prompt_context.settings.source_urls,undefined);
+ assert(JSON.stringify(output.prompt_context).length<JSON.stringify(context).length/2);
+});
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved drafts without approving them":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{
  const f=fixture(t,"kai.workflows"),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),calls=[];

@@ -183,3 +183,23 @@ test("passage selection keeps long paragraphs useful and never cuts a sentence i
  assert.match(excerpt,/AI training learns from data\./);assert.ok(excerpt.length<=2200);assert.ok(excerpt.endsWith('.'));
  assert.equal(selectPassages('x'.repeat(2400),'x',''), '');
 });
+
+test("research keeps a list's negative introduction attached to its matching bullets",async()=>{
+ const html='<html><head><title>ARDC information</title></head><body><p>About public lawyer information.</p><h2>What does the ARDC not do?</h2><p>The ARDC cannot:</p><ul><li>give legal advice</li><li>change court decisions</li><li>assign lawyers to cases</li></ul><p>Use the lawyer search to check license status.</p></body></html>';
+ const result=await research('ARDC change court decisions lawyers',{topic:'ARDC',sourceUrls:['https://evidence.example/ardc'],maxPages:1,privacyMode:()=> 'network',lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}})});
+ assert.match(result.sources[0].text,/The ARDC cannot:\n- give legal advice\n- change court decisions\n- assign lawyers to cases/);
+ const {selectPassages}=require('../plugin/service/workflow-research');
+ assert.doesNotMatch(selectPassages('The service cannot:\n- '+('change decisions. '.repeat(180))+'\n\nOther information.','change decisions','',500),/change decisions/,'Oversized lists cannot lose their governing qualifier');
+});
+test("quoted HTML attributes and hidden elements cannot leak duplicate markup into page evidence",async()=>{
+ const {fetchPage}=require('../plugin/service/lib/websearch');
+ const html='<html><head><title>Visible page</title><style>hidden-style</style></head><body><div data-model="<p>attribute-only &gt; text</p>"><p>Visible <strong>re</strong>instatement guidance.</p></div><script>hidden-script</script><nav>hidden-nav</nav><footer>hidden-footer</footer></body></html>';
+ const page=await fetchPage('https://evidence.example/page',{lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}}),maxChars:1000});
+ assert.equal(page.title,'Visible page');assert.equal(page.text,'Visible reinstatement guidance.');
+});
+test("page length limits omit whole blocks rather than cutting a condition or list",async()=>{
+ const {fetchPage}=require('../plugin/service/lib/websearch');
+ const html='<p>Useful evidence.</p><p>The service cannot:</p><ul><li>'+('perform this task. '.repeat(100))+'</li><li>except in this situation.</li></ul><p>Another complete paragraph.</p>';
+ const page=await fetchPage('https://evidence.example/page',{lookup,fetchImpl:async()=>new Response(html,{headers:{'content-type':'text/html'}}),maxChars:100});
+ assert.equal(page.text,'Useful evidence.\n\nAnother complete paragraph.');
+});

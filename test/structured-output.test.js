@@ -70,6 +70,26 @@ test("local syntax recovery cannot invent missing values, sections, string endin
   assert.equal(Output.inspect('{"tool":{"index":0,"arguments":{"ids":[1,2}}}', {}, true).valid, false);
   assert.equal(Output.inspect('{"x":' + '['.repeat(9) + '1}').valid, false, "Repair count is bounded");
 });
+test("the live Qwen outline's repeated closing brace needs no paid repair and retains its raw reply", async t => {
+  const raw = '{"lines":["Evaluate each attorney\'s experience and success in DUI cases.","Compare client reviews and testimonials for each attorney."]}}';
+  const schema = { type: "object", required: ["lines"], additionalProperties: false, properties: { lines: { type: "array", minItems: 2, maxItems: 2, items: { type: "string" } } } };
+  const f = setup(t, [reply(raw)], { outputSchema: schema, maxFormatRepairs: 0, maxContinuations: 0 });
+  assert.deepEqual(JSON.parse(await f.run()), JSON.parse(raw.slice(0, -1)));
+  assert.equal(f.calls.length, 1); assert.equal(f.saved[0].completion.choices[0].message.content, raw);
+  assert.deepEqual(f.saved[0].outputRecovery, { kind: "repeated-trailing-closers", edits: [{ offset: raw.length - 1, remove: "}" }] });
+  assert.deepEqual(f.order, ["request", "save", "ack"]);
+});
+test("trailing-closer recovery preserves quoted punctuation and rejects ambiguity, incomplete content and tool calls", () => {
+  const value = { points: ['literal ] } \\" quotation', 'emoji 😀 and backslash \\'] }, raw = JSON.stringify(value);
+  const schema = { type: "object", required: ["points"], properties: { points: { type: "array", minItems: 2, items: { type: "string" } } } };
+  assert.deepEqual(Output.inspect(raw + ' }\n}', schema).value, value);
+  assert.deepEqual(Output.inspect('["literal ]",{"x":"}"}]]', { type: "array", minItems: 2 }).value, ['literal ]', { x: '}' }]);
+  for (const bad of [raw + ']', raw + '{}', raw + ' true', raw + '} prose', raw + ',}', raw + '}'.repeat(9), '{"points":["one"]}}', '{"points":["one","two"}}', '{"points":["one","unfinished}}']) {
+    assert.equal(Output.inspect(bad, schema).valid, false, bad);
+  }
+  assert.equal(Output.inspect('{"tool":{"index":0,"arguments":{}}}}', {}, true).valid, false);
+  assert.equal(Output.inspect('['.repeat(65) + '0' + ']'.repeat(66), {}).valid, false);
+});
 test("a restarted continuation must independently satisfy the full schema", async t => {
   const f = setup(t, [reply(truncated), reply(truncated + tail)]);
   assert.equal(JSON.parse(await f.run()).sections.length, 5); assert.equal(f.calls.length, 2);

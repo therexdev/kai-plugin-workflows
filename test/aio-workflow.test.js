@@ -75,6 +75,26 @@ test('outline factual and editorial findings share the first revision without lo
  assert.deepEqual(result.history[0].issues.map(i=>i.id),['source-wrong-agency','wrong-agency']);
  assert.deepEqual(calls,['OUTLINE_REVIEW_FACTS','OUTLINE_REVIEW_REVIEW','OUTLINE_REVIEW_REVISE','OUTLINE_REVIEW_REVISE','OUTLINE_REVIEW_FACTS','OUTLINE_REVIEW_REVIEW']);
 });
+test('optional outline citation toggles stay advisory without waiving factual changes or blockers',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
+ const sentence='Listed providers must carry insurance.',finding={id:'same',severity:'error',location:'Eligibility',evidence:sentence,fix:'Listed providers must carry insurance [S0-1].'};
+ const packet={artifact:{title:'Plan'},context:{},cycle:1,limit:2,history:[],checks:{valid:true,issues:[],metrics:[]}};
+ const judge=async(items,verdict='CHANGE_REQUEST')=>(await V.evaluate(graph.nodes.find(n=>n.id==='outline_review_judge').config.source,{item:{json:{verdict:'PASS',items:[]}},nodes:{outline_review_checks:packet,outline_review_facts_decision:{json:{verdict,items}}}},signal,false))[0];
+ for(const item of [finding,{...finding,evidence:finding.fix,fix:sentence}]){
+  const out=await judge([item]);assert.equal(out.status,'Passed checks');assert.equal(out.needsRevision,false);
+  assert.equal(out.history[0].issues[0].classification,'outline-citation-format');assert.equal(out.history[0].issues[0].severity,'warning');
+  assert.equal(out.history[0].citationOnlyFindings[0].severity,'error');assert.deepEqual(out.artifact,packet.artifact);
+ }
+ for(const item of [{...finding,fix:'Listed providers need no insurance [S0-1].'},{...finding,evidence:'Cost is 100.',fix:'Cost is 200 [S0-1].'},{...finding,evidence:finding.fix,fix:'Listed providers must carry insurance [S0-2].'},{...finding,fix:sentence}]){
+  const out=await judge([item]);assert.equal(out.status,'Needs review');assert.equal(out.history[0].citationOnlyFindings.length,0);
+ }
+ const real={...finding,id:'guarantee',evidence:'Membership guarantees competence.',fix:'Delete the unsupported guarantee.'};
+ const mixed=await judge([finding,real]);assert.equal(mixed.status,'Needs review');assert.equal(mixed.prior.find(i=>i.id==='source-guarantee').severity,'error');
+ assert.equal((await judge([finding],'BLOCKER')).status,'Needs review');
+ const section={...packet,artifact:sentence,context:{section:{word_count:160}},checks:{valid:true,issues:[],metrics:[{type:'words',actual:160,min:144,max:176}]}};
+ const kept=(await V.evaluate(graph.nodes.find(n=>n.id==='section_review_judge').config.source,{item:{json:{verdict:'CHANGE_REQUEST',items:[finding],summary:''},sourceAudit:true},nodes:{section_review_checks:section}},signal,false))[0];
+ assert.equal(kept.status,'Needs review');assert.equal(kept.history[0].citationOnlyFindings.length,0);
+});
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved drafts without approving them":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{
  const f=fixture(t,"kai.workflows"),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),calls=[];

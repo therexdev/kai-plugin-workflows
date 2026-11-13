@@ -14,6 +14,9 @@
 - Retry a failed read-only provider catalog lookup once before generation. Temporary discovery errors can recover without replaying paid work; cancellation and uncertain completion outcomes still stop.
 - Audit the outline's factual premises before drafting and combine source and editorial findings in the same revision. Preserve both sets when reviewer IDs collide, and distinguish supported listing requirements from unsupported assurances of quality or protection.
 
+- Keep optional outline citation additions/removals advisory only when the statement text is identical. Retain the original findings; changed wording, quantities, source reassignment and BLOCKER verdicts still require resolution. Article citation checks are unchanged.
+- Review the current artifact independently without feeding reviewers previous issue lists or another reviewer's findings. Revisions and run history retain those findings, reducing repeated requests to fix already-corrected text.
+
 This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 
 # Workflows 0.3.20

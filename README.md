@@ -85,3 +85,5 @@ Workflows 0.3.18 adds a configurable Quality Check node and verified-overlap tex
 Workflows 0.3.19 builds and revises outlines and publishing extras in small validated parts. Invalid JSON prefixes use bounded repair instead of repeated continuation calls. Import the updated AIO template to use the smaller tasks; existing custom graphs are preserved.
 
 Workflows 0.3.20 selects relevant passages across all supplied reference URLs, retains nearby context, and adds independent source audits to the AIO template. Section and total word budgets are required checks; unmatched coaching quotations and unresolved section summaries cannot supply the publishing extras. Import the updated template to adopt these changes.
+
+Workflows 0.3.21 preserves complete evidence passages and list qualifications, combines outline findings before targeted corrections, and stops paid drafting when planning remains unresolved. Read-only discovery retries and pure Condition retries preserve completed model work. Import the updated AIO template to adopt the revised graph. A clean complete live 2,000-word article run remains unverified; see the release notes for validation and limitations.

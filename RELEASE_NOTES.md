@@ -1,4 +1,4 @@
-# Workflows 0.3.21 candidate
+# Workflows 0.3.21
 
 - Reduce repeated AIO prompt context while preserving complete source passages, titles, quotations, client facts and section requirements.
 - Keep list introductions attached to their bullets so qualifiers such as “cannot” are not lost. Read quoted HTML attributes correctly and omit oversized blocks without cutting a condition in half.
@@ -21,7 +21,9 @@
 - Research decision guides using comparison, question, experience, cost and agreement terms alongside the original topic. This prevents repeated place/topic mentions from displacing useful decision evidence; topic validation and the complete-passage size limit are unchanged.
 - When every blocking finding proposes exactly its quoted evidence as the fix, recheck the unchanged artifact within the existing cycle limit instead of paying to rewrite it. Keep the original error findings and BLOCKER verdicts; persistent non-actionable reviews end as Needs review. Real factual or mechanical corrections still trigger revision.
 
-This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
+Automated validation passed 196 tests with one optional-plugin skip on Windows, macOS and Linux, plus all 14 native Core integration checks. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results and live limitations are tracked in PR #18.
+
+Update Workflows, then import the updated AIO researched-article template to adopt its planning and review changes. Existing saved workflows and run history are preserved. Requires Core 0.7.28 or later. The separate Core streaming-recovery change in kai-core PR #25 is not included in this plugin release.
 
 # Workflows 0.3.20
 

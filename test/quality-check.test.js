@@ -30,3 +30,9 @@ test("history context has a separate bound without loosening the per-node output
  await assert.rejects(V.evaluate("nodes.a.text",{nodes:{a:{text:large}}}),/Output exceeds 200 KB/);
  await assert.rejects(V.evaluate("1",{nodes:{a:{text:"x".repeat(2100000)}}}),/context exceeds 2 MB/);
 });
+test("loading accumulated history does not consume a condition's execution budget",async()=>{
+ const V=require("../plugin/service/workflow-values");
+ const scope={toJSON(){const end=performance.now()+150;while(performance.now()<end){}return {item:{needsRevision:true},nodes:{prior:{text:'Evidence '.repeat(30000)}}};}};
+ assert.equal(await V.evaluate('item.needsRevision',scope),true);
+ await assert.rejects(V.evaluate('(()=>{while(true){} })()',{item:{}}),/failed/);
+});

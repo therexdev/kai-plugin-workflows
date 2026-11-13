@@ -8,6 +8,9 @@
 - State each section's exact target and allowed word range directly in the writing prompt. Use short-paragraph guidance for brief sections and an explicit number of words to remove when shortening.
 - Require review verdicts to agree with their findings through bounded `oneOf` JSON contracts. PASS with positive notes is corrected as a malformed review response rather than triggering repeated content rewrites; real source findings remain blocking.
 - Audit nonempty section drafts before revision even when length or citation checks fail, so the first revision receives factual and mechanical findings together. Keep short-section coaching compact, preserve the requested topic and source scope, and prohibit unsupported assurances in writing.
+- Load bounded workflow history under a separate setup deadline, preserving the existing execution limits for conditions and code. A slow context load no longer consumes a simple condition's execution allowance.
+- Allow explicit retry of failed pure Condition steps while retaining completed model responses. Failed external writes and uncertain in-flight work remain ineligible for retry.
+- Rebuild sections rejected by a source audit from evidence and requirements, retaining rejected prose in history rather than encouraging the reviser to copy unsupported assurances.
 
 This candidate has not been signed or published. Full live 2,000-word verification has not achieved a clean result; model review disagreements and word-budget failures remain visible rather than being approved. Validation results are tracked in PR #18.
 

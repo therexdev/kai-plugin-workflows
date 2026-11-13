@@ -111,8 +111,19 @@ test("retry resumes the second section, refreshes evidence and keeps the first s
 test("retry is unavailable for failed writes, uncertain work, or live sibling branches", () => {
   const make = type => ({ status: "failed", spec: { graph: {} }, frames: { root: { graph: { nodes: [{ id: "x", type }] }, states: { x: { status: "failed" } } } } });
   for (const type of ["http_request", "tool_call", "memory", "code"]) assert.equal(Model.canRetryRun(make(type)), false);
+  assert.equal(Model.canRetryRun(make("condition")), true);
   const run = make("agent"); run.inFlight = {}; assert.equal(Model.canRetryRun(run), false); delete run.inFlight;
   run.frames.root.states.other = { status: "running" }; assert.equal(Model.canRetryRun(run), false);
+});
+
+test("retrying a failed pure condition keeps the completed model response",async t=>{
+ const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets});let calls=0,fail=true;
+ const engine=new CompanionWorkflows({store,connections:{list:()=>[]},models:()=>[{alias:'local-test',status:'ready'}],runLocal:async()=>{calls++;return JSON.stringify({ready:true});}});t.after(()=>engine.stop());
+ const perform=engine.perform.bind(engine);engine.perform=async(...args)=>{if(args[2].type==='condition'&&fail){fail=false;throw new CompanionError('Expression or code failed: interrupted');}return perform(...args);};
+ const n=Model.node,e=Model.edge,w=engine.save({name:'Condition recovery',model:'local-test',graph:{version:2,nodes:[n('trigger','start'),n('agent','model',null,{prompt:'Return a ready result.'}),n('condition','route',null,{expression:'=item.json.ready'}),n('output','out',null,{text:'Completed'})],edges:[e('start','model'),e('model','route'),e('route','out','true')]}});
+ const id=engine.begin(w.id),failed=await settled(engine,id);assert.equal(failed.status,'failed');assert.equal(calls,1);
+ const saved=structuredClone(failed.frames.root.states.model),plan=engine.retryPlan(id);assert.deepEqual(plan.refreshed,[]);assert.deepEqual(plan.reset.map(r=>r.nodeId),['route']);
+ engine.retry(id,plan.fingerprint);const completed=await settled(engine,id);assert.equal(completed.status,'completed',completed.error);assert.equal(calls,1);assert.deepEqual(completed.frames.root.states.model,saved);assert.equal(completed.retryHistory.length,1);
 });
 
 test("retry keeps completed per-item answers and does not replay a preceding external write", async t => {

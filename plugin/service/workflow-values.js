@@ -9,7 +9,8 @@ function envelope(raw) { let json = raw; if (typeof raw === "string") { try { js
 async function evaluate(source, scope, signal, expression = true) {
   signal?.throwIfAborted();
   if (typeof source !== "string" || source.length > 16000) throw new CompanionError("Code or expression exceeds 16 KB.");
-  const QuickJS = await getQuickJS(), runtime = QuickJS.newRuntime(), deadline = Date.now() + (expression ? 100 : 750);
+  const QuickJS = await getQuickJS(), runtime = QuickJS.newRuntime();
+  let deadline = Date.now() + 750;
   runtime.setMemoryLimit(64 * 1024 * 1024); runtime.setMaxStackSize(256 * 1024); runtime.setInterruptHandler(() => Date.now() > deadline || signal?.aborted);
   const vm = runtime.newContext();
   try {
@@ -19,7 +20,15 @@ async function evaluate(source, scope, signal, expression = true) {
     // aggregate separately; individual inputs/outputs still use the 200 KB cap.
     const data = JSON.stringify(scope);
     if (!data || data.length > SCOPE_LIMIT) throw new CompanionError("Expression context exceeds 2 MB. Split this workflow into smaller frames.");
-    const program = `"use strict";const {item,items,input,nodes,iteration}=JSON.parse(${JSON.stringify(data)});const result=(()=>{${expression ? "return (" + source + ");" : source}\n})();const encoded=JSON.stringify(result===undefined?null:result);if(encoded.length>${LIMIT})throw Error("Output exceeds 200 KB");encoded;`;
+    signal?.throwIfAborted();
+    // Loading the bounded JSON context is trusted setup, not user execution.
+    // Keep it bounded separately so a large history cannot exhaust a trivial
+    // condition's 100 ms allowance before the condition starts.
+    const loaded = vm.evalCode(`"use strict";const {item,items,input,nodes,iteration}=JSON.parse(${JSON.stringify(data)});`, "kai-workflow-context.js");
+    if (loaded.error) { const e = vm.dump(loaded.error); loaded.error.dispose(); throw new CompanionError("Expression context load failed: " + String(e.message || "Check the context").slice(0, 240)); }
+    loaded.value.dispose(); signal?.throwIfAborted();
+    deadline = Date.now() + (expression ? 100 : 750);
+    const program = `"use strict";const result=(()=>{${expression ? "return (" + source + ");" : source}\n})();const encoded=JSON.stringify(result===undefined?null:result);if(encoded.length>${LIMIT})throw Error("Output exceeds 200 KB");encoded;`;
     const result = vm.evalCode(program, "kai-workflow.js");
     if (result.error) { const e = vm.dump(result.error); result.error.dispose(); throw new CompanionError("Expression or code failed: " + String(e.message || "Check the script").slice(0, 240)); }
     const encoded = vm.getString(result.value); result.value.dispose(); signal?.throwIfAborted(); return JSON.parse(encoded);

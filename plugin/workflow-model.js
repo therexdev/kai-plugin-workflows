@@ -102,7 +102,7 @@
       if (["running", "waiting"].includes(state.status)) return false;
       if (state.status !== "failed") continue;
       const type = frame.graph.nodes.find(n => n.id === id)?.type;
-      if (["agent", "web_research"].includes(type)) leaves++;
+      if (["agent", "web_research", "condition"].includes(type)) leaves++;
       else if (!["loop", "sub_workflow"].includes(type)) return false;
     }
     return leaves > 0;

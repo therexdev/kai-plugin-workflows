@@ -56,7 +56,7 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
  f.api.wallet={complete:async request=>{
   assert(Buffer.byteLength(JSON.stringify(request.messages))<=24000,"Never silently truncate a model packet");
   const p=request.messages[1].content;assert.doesNotMatch(p,/\{\{(?:item|nodes)\b/,"Every prompt reference must be resolved");const stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let content;
-  const packet=()=>p.includes("Packet: ")?JSON.parse(p.match(/Packet: (.+)/)[1]):({artifact:p.match(/Artifact: (.+)/)[1],context:JSON.parse(p.match(/(?:Context|Source context): (.+)/)[1])});
+  const packet=()=>p.includes("Packet: ")?JSON.parse(p.match(/Packet: (.+)/)[1]):({artifact:p.match(/Artifact: ([^\n]*)/)[1],context:JSON.parse(p.match(/(?:Context|Source context): (.+)/)[1])});
   if(stage==="AIO_RESEARCH")content=JSON.stringify({intent:"Explain AI",facts:["AI learns from data. [S0-1]","Training identifies patterns. [S0-1]"],gaps:"Limited evidence.",angle:"Training versus inference"});
   else if(stage==="AIO_OUTLINE"||stage==="OUTLINE_REVIEW_REVISE"){
    const task=JSON.parse(p.match(/Task: (.+)/)[1]);
@@ -69,7 +69,7 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
    let needs=false;if(stage==="SECTION_REVIEW_REVIEW"){const a=packet();needs=stuck||!a.artifact.includes("[S");}
    const advisory=stage==="OUTLINE_REVIEW_REVIEW"; content=JSON.stringify({verdict:needs||advisory?"CHANGE_REQUEST":"PASS",...(stage==="SECTION_REVIEW_REVIEW"?{summary:"AI learns patterns from training data. ["+packet().context.sources[0].id+"]"}:{}),items:needs?[{id:"citation-1",severity:"error",location:"section",evidence:"No citation",fix:"Cite supporting source [S1-1] with the section's actual ID."}]:advisory?[{id:"style-note",severity:"warning",location:"outline",evidence:"Style preference",fix:"Consider shorter headings."}]:[]});
   }
-  else if(stage==="SECTION_REVIEW_REVISE"){const a=packet();content=a.artifact.replace(/\s*\[S\d+-\d+\]/g,"")+" ("+a.context.sources[0].id+")";}
+  else if(stage==="SECTION_REVIEW_REVISE"){const a=packet();content=(a.artifact||Array(a.context.section.word_count).fill("Evidence").join(" ")).replace(/\s*\[S\d+-\d+\]/g,"")+" ("+a.context.sources[0].id+")";}
   else if(stage==="AIO_EXTRAS"||stage==="EXTRAS_REVIEW_REVISE"){
    const task=JSON.parse(p.match(/Task: (.+)/)[1]),lines={meta:["Understanding how artificial intelligence works","An introduction to how artificial intelligence learns patterns from data, produces useful results, and encounters limitations.","Learn how AI works."],answer:["AI learns patterns from data and uses those patterns to produce results. [S1-1]"],takeaways:["Models learn from data.","Training identifies patterns.","Models have limitations."],faq:["How does AI work "+task.index+"?","AI learns patterns from data. (S1-1)"]}[task.key];
    content=JSON.stringify({lines});
@@ -164,7 +164,7 @@ test('source warnings block approval and subsequent content edits keep the word 
  assert.equal(out.json.verdict,'CHANGE_REQUEST');assert.equal(out.json.items[0].severity,'error');assert.equal(audit.items[0].severity,'warning');
  const judge=graph.nodes.find(n=>n.id==='section_review_judge'),packet={artifact:'Draft',context:{},cycle:1,limit:2,history:[],checks:{valid:true,issues:[],metrics:[{type:'words',actual:170,min:144,max:176}]}};
  const judged=(await V.evaluate(judge.config.source,{item:out,nodes:{section_review_checks:packet}},signal,false))[0];
- assert.equal(judged.status,'Needs review');assert.equal(judged.needsRevision,true);assert.match(judged.revisionInstruction,/KEEP.*170.*144–176/);
+ assert.equal(judged.status,'Needs review');assert.equal(judged.needsRevision,true);assert.match(judged.revisionInstruction,/fresh section.*160.*144–176/);assert.equal(judged.revisionArtifact,'');assert.equal(judged.artifact,packet.artifact);
 });
 
 test('a short uncited section receives factual and mechanical fixes in its first revision',async t=>{
@@ -178,7 +178,7 @@ test('a short uncited section receives factual and mechanical fixes in its first
   const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let content;
   if(stage==='SECTION_REVIEW_FACTS')content=JSON.stringify({verdict:revised?'PASS':'CHANGE_REQUEST',items:revised?[]:[{id:'unsupported-assurance',severity:'error',location:'Sentence 1',evidence:'Listing guarantees success.',fix:'Remove the unsupported guarantee.'}],summary:'The directory lists participating providers.'});
   else if(stage==='SECTION_REVIEW_REVISE'){
-   assert.match(p,/Remove the unsupported guarantee/);assert.match(p,/144–176/);assert.match(p,/known source citation/);
+   assert.match(p,/Remove the unsupported guarantee/);assert.match(p,/144–176/);assert.match(p,/known source citation/);assert.match(p,/Artifact: \nContext:/,'Do not feed the rejected prose back as the revision basis');
    revised=true;content=Array(160).fill('Supported').join(' ')+' [S1-1]';
   }else {assert.equal(stage,'SECTION_REVIEW_REVIEW');content=JSON.stringify({verdict:'PASS',items:[],summary:'Participating providers are listed. [S1-1]'});}
   return {choices:[{message:{content},finish_reason:'stop'}],usage:{completion_tokens:150},koin:{state:'charged'}};

@@ -1,4 +1,4 @@
-# Workflows 0.3.20 (candidate)
+# Workflows 0.3.20
 
 - Rank section-specific passages across all supplied public URLs; retain paragraph boundaries and nearby context instead of repeatedly using page prefixes. Existing public-address and response-size protections remain in force.
 - Match coaching quotations to retrieved text and audit section claims independently before editorial review; source-audit warnings require resolution. Review and revision prompts must remove or qualify unsupported requirements rather than fill them from memory.
@@ -8,6 +8,8 @@
 - Enforce section and total body word budgets within the configured tolerance, with explicit shorten/expand/keep instructions and actual/range feedback on every revision.
 - Withhold unresolved sections from FAQ, takeaways and answer generation. Skip extras generation entirely when no sections pass. Audit extras against matched source quotations and preserve the Needs review outcome when checks remain unresolved.
 - Use seven sections for the default 2,000-word article to reduce repeated coverage. Existing custom graphs remain unchanged; import the new template to adopt it.
+
+Automated tests passed on Windows, macOS and Linux, along with native Core integration checks. Focused paid retests verified the revision fixes; a complete live 2,000-word article with this final version remains unverified after a provider HTTP 502 interrupted the earlier run.
 
 # Workflows 0.3.19
 

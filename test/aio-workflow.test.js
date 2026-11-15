@@ -31,7 +31,7 @@ test('a targeted outline correction preserves unrelated headings and requirement
  const collected=(await evaluate('outline_review_revise_collect',{item:{json:{lines:revised}},nodes:{outline_review_revise_task:assigned}}))[0];
  const result=(await evaluate('outline_review_revise_done',{item:collected}))[0].json;
  assert.deepEqual(result,{...original,sections:original.sections.map((s,i)=>i===1?{...s,points:revised}:s)});
- for(const location of ['Ask about costs section','Section: ASK ABOUT COSTS','Sections: ASK ABOUT COSTS','sections[1].points[0]','$.sections[1].points','sections[1].points[1]','List unsupported prices',' Explain payment terms ']){
+ for(const location of ['Ask about costs section','Section: ASK ABOUT COSTS','Sections: ASK ABOUT COSTS','Outline Ask about costs','Outline: Ask about costs','Ask about costs: List unsupported prices','Outline: Ask about costs: List unsupported prices','Section 2, Ask about costs','Section 2','sections[1].points[0]','$.sections[1].points','sections[1].points[1]','List unsupported prices',' Explain payment terms ']){
   const targeted=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[{...prior[0],location}]}}))[0];assert.deepEqual(targeted.tasks.map(t=>t.index),[1]);
  }
  const duplicatePoint=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[{...prior[0],location:'sections[1].points[0]',fix:'Remove duplicate content, keep in section 0.'}]}}))[0];
@@ -39,8 +39,33 @@ test('a targeted outline correction preserves unrelated headings and requirement
  const ambiguous=structuredClone(original);ambiguous.sections[0].points[1]='List unsupported prices';
  const ambiguousResult=(await evaluate('outline_review_revise',{item:{artifact:ambiguous,context,prior:[{...prior[0],location:'List unsupported prices'}]}}))[0];
  assert.equal(ambiguousResult.tasks.length,4);assert.deepEqual(ambiguousResult.values,[]);
- for(const finding of [{...prior[0],location:'$'},{...prior[0],fix:'Rename this heading.'},{...prior[0],fix:'Merge duplicate headings.'},...['sections[1].heading','sections[9].points[0]','sections[1].points[9]','sections[1].points[0].unknown'].map(location=>({...prior[0],location}))]){
+ const quoted=structuredClone(original);quoted.sections[1].points[0]="Ask about the attorney's fees.";
+ const quotedResult=(await evaluate('outline_review_revise',{item:{artifact:quoted,context,prior:[{...prior[0],location:'Ask about costs: Ask about the attorney’s fees.'}]}}))[0];
+ assert.deepEqual(quotedResult.tasks.map(t=>t.index),[1]);
+ for(const finding of [{...prior[0],location:'$'},{...prior[0],fix:'Rename this heading.'},{...prior[0],fix:'Merge duplicate headings.'},...['Ask about costs: Unknown claim','Next steps: List unsupported prices','Section 1, Ask about costs','Section 0','Section 99','sections[1].heading','sections[9].points[0]','sections[1].points[9]','sections[1].points[0].unknown'].map(location=>({...prior[0],location}))]){
   const full=(await evaluate('outline_review_revise',{item:{artifact:original,context,prior:[finding]}}))[0];assert.equal(full.tasks.length,4);assert.deepEqual(full.values,[]);
+ }
+});
+test('outline revisions isolate required findings from advisory suggestions',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
+ const evaluate=(id,item)=>V.evaluate(graph.nodes.find(n=>n.id===id).config.source,{item},signal,false);
+ const original={title:'Choosing legal help',angle:'A supported decision guide',sections:[{heading:'Find candidates',points:['Use referrals','Check public status']},{heading:'Ask about costs',points:['List unsupported prices','Explain payment terms']},{heading:'Next steps',points:['Arrange a consultation','Review the agreement']}]};
+ const context={section_count:3,budgets:[160,344,120],settings:{},sources:[]};
+ const required={id:'fee-clarity',severity:'error',location:'Outline: Ask about costs',evidence:'List unsupported prices',fix:'Ask which costs the agreement covers.'};
+ const other={id:'status',severity:'error',location:'Find candidates',evidence:'Check public status',fix:'Use the licensing authority for public status.'};
+ const advisory={id:'local-prices',severity:'warning',location:'Ask about costs',evidence:'No local ranges',fix:'Add Chicago-specific court and expert-witness prices.'};
+ const input={artifact:original,context,prior:[required,other,advisory]};
+ const initial=(await evaluate('outline_review_revise',input))[0];
+ assert.deepEqual(input.prior,[required,other,advisory]);
+ assert.deepEqual(initial.prior,[required,other]);
+ assert.deepEqual(initial.tasks.map(t=>t.index),[0,1]);
+ assert.deepEqual(initial.values.find(v=>v.key==='meta').lines,[original.title,original.angle,...original.sections.map(s=>s.heading)]);
+ for(let index=0;index<2;index++){
+  const assigned=(await evaluate('outline_review_revise_task',{...initial,index}))[0];
+  assert.deepEqual(assigned.task_prior,index===0?[other]:[required]);
+  assert.deepEqual(assigned.task.existing,original.sections[index].points);
+  assert.deepEqual(assigned.completed_parts,{headings:original.sections.map(s=>s.heading)});
+  assert(!JSON.stringify(assigned.task_prior).includes('Chicago-specific'));
  }
 });
 test('an unresolved outline delivers its findings without starting paid drafting',async t=>{

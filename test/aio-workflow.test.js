@@ -114,7 +114,7 @@ test('identical evidence and fix repeat review without rewriting or waiving unre
   let audits=0;const sentence='Review written agreements before hiring.';
   f.api.network.models=async()=>[{model:'gemma3-12b',available:true,maxOutput:256}];
   f.api.wallet={authorize:async()=>{},complete:async request=>{
-   const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let value;
+   const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);if(process.env.KAI_QA_DEBUG)console.log('identical-review',scenario,stage);let value;
    if(stage==='OUTLINE_REVIEW_FACTS'){
     const bad=++audits===1||scenario!=='resolves';
     value={verdict:bad?(scenario==='blocker'?'BLOCKER':'CHANGE_REQUEST'):'PASS',items:bad?[{id:'agreement',severity:'error',location:'Next steps',evidence:sentence,fix:sentence}]:[]};
@@ -171,7 +171,7 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
    content=JSON.stringify({lines:task.key==="meta"?["Understanding how artificial intelligence works","Explain training versus inference",...Array.from({length:task.count-2},(_,i)=>"AI topic "+(i+1))]:["Explain the evidence","Give a useful example"]});
   }
   else if(stage==="AIO_COACH")content=JSON.stringify({focus:"Explain training simply",facts:[{claim:"AI training learns from data.",source_id:JSON.parse(p.match(/Packet: (.+)/)[1]).sources[0].id,quote:"AI training learns from data."}],gaps:"Limited evidence."});
-  else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]);assert.ok(p.includes("Write about "+a.section.word_count+" words"));content=Array(a.section.word_count).fill("Evidence").join(" ");}
+  else if(stage==="AIO_WRITE"){const a=JSON.parse(p.match(/Assignment and readable evidence: (.+)/)[1]),task=JSON.parse(p.match(/Paragraph budget: (\{.+?\})\./)[1]);assert.ok(p.includes("Write about "+task.target+" words"));content=Array(task.target).fill("Evidence").join(" ");if(!p.includes("Previous paragraph attempt: \n"))content+=" ["+a.sources[0].id+"]";}
   else if(stage.endsWith("_FACTS")){const unresolved=stuck&&stage==="SECTION_REVIEW_FACTS";content=JSON.stringify({verdict:unresolved?"CHANGE_REQUEST":"PASS",items:unresolved?[{id:"unsupported",severity:"error",location:"section",evidence:"Unsupported claim",fix:"Remove the unsupported claim"}]:[],...(stage.startsWith("SECTION")?{summary:"AI learns from data."}:{})});}
   else if(stage.endsWith("_REVIEW")){
    let needs=false;if(stage==="SECTION_REVIEW_REVIEW"){const a=packet();needs=stuck||!a.artifact.includes("[S");}
@@ -195,22 +195,59 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
  assert.equal(calls.filter(s=>s==="AIO_OUTLINE").length,sections.length+1);assert.equal(calls.filter(s=>s==="AIO_EXTRAS").length,stuck?0:7);
  assert.equal(result.counts.length,sections.length);assert.equal(result.counts.reduce((s,x)=>s+x.target,0),stuck?200:2000);
  assert.equal(result.status,stuck?"Needs review":"Passed configured checks");
- assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVISE").length,sections.length*(stuck?2:1));
+ assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVISE").length,sections.length*(stuck?2:0));
  assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVIEW").length,sections.length*(stuck?0:1));
  assert.deepEqual(result.visibleFAQ,(result.schema?.mainEntity||[]).map(q=>({question:q.name,answer:q.acceptedAnswer.text})));
  if(stuck){assert.equal(result.schema,null);assert.equal(result.extras.withheld,true);assert.equal(calls.some(s=>s.startsWith("EXTRAS_REVIEW")),false);}
  for(const c of result.counts)assert.equal(c.target,c.actual);
- assert.equal(result.reviews[1].history[0].issues.some(x=>x.code==="citations-missing"),true);
+ assert.ok(r.steps.some(s=>s.nodeId==="draft_packet"&&s.items?.some(p=>p.issues?.some(x=>x.code==="citations-missing"))),"Missing paragraph citations were checked before a section review");
  assert.equal(result.reviews[1].history.at(-1).issues.some(x=>x.code==="citations-missing"),false);
  assert.equal(result.quality.valid,true);assert.equal(calls.includes("OUTLINE_REVIEW_REVISE"),false,"Advisory-only reviews do not consume revision credits");
 });
 test("article citation formatting keeps unknown IDs visible to validation",async()=>{
  const graph=Transfer.parseDocument(source).graph,n=graph.nodes.find(n=>n.id==='draft_packet'),V=require('../plugin/service/workflow-values'),Quality=require('../plugin/workflow-quality');
  const evidence={sources:[{id:'S1-1'},{id:'S1-2'}],settings:{revision_limit:2}};
- const packet=(await V.evaluate(n.config.source,{item:{text:'Supported claim (S1-1, S1-2). Unknown claim (S1-99).'},nodes:{evidence,verified_coach:{items:[{facts:[]}] }}},new AbortController().signal,false))[0];
+ const packet=(await V.evaluate(n.config.source,{item:{text:'Supported claim (S1-1, S1-2). Unknown claim (S1-99).'},nodes:{writer_task:{context:evidence,parts:[],index:0,attempt:1,task:{min:1,max:200}}}},new AbortController().signal,false))[0];
  assert.equal(packet.artifact,'Supported claim [S1-1,S1-2]. Unknown claim [S1-99].');
  const result=Quality.inspect(packet.artifact,[{type:'citations',sources:evidence.sources,min:1}]);
  assert.equal(result.valid,false);assert(result.issues.some(i=>i.code==='citations-unknown'));
+});
+
+test('explicit bare source attributions are formatted without inventing evidence',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),Quality=require('../plugin/workflow-quality');
+ const evidence={sources:[{id:'S1-1'},{id:'S1-2'}],settings:{revision_limit:2}};
+ const text='According to S1-1, request a written agreement. See S1-1; S1-2. Existing [S1-2]. Bare label S1-1. https://example.org/S1-1. Source S1-99.';
+ const expected='According to [S1-1], request a written agreement. See [S1-1;S1-2]. Existing [S1-2]. Bare label S1-1. https://example.org/S1-1. Source [S1-99].';
+ const packet=(await V.evaluate(graph.nodes.find(n=>n.id==='draft_packet').config.source,{item:{text},nodes:{writer_task:{context:evidence,parts:[],index:0,attempt:1,task:{min:1,max:200}}}},new AbortController().signal,false))[0];
+ assert.equal(packet.artifact,expected);
+ const checks=Quality.inspect(packet.artifact,[{type:'citations',sources:evidence.sources,min:1}]);
+ assert.equal(checks.valid,false);assert(checks.issues.some(i=>i.code==='citations-unknown'));
+ const state={artifact:expected,context:{sources:evidence.sources},cycle:0,limit:2,prior:[],history:[],revisionMode:'replace'};
+ const kept=(await V.evaluate(graph.nodes.find(n=>n.id==='section_review_keep').config.source,{item:{text},nodes:{section_review_judge:state}},new AbortController().signal,false))[0];
+ assert.equal(kept.artifact,expected);assert.equal(kept.reviewed,false,'Formatting still requires the normal factual and mechanical recheck');
+});
+
+test('paragraph budgets preserve the section range and a failed paragraph cannot pass through aggregation',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),Quality=require('../plugin/workflow-quality'),signal=new AbortController().signal;
+ const node=id=>graph.nodes.find(n=>n.id===id),evaluate=(id,scope)=>V.evaluate(node(id).config.source,scope,signal,false);
+ for(const target of [16,64,120,160,344,378]){
+  const context={section:{word_count:target},settings:{word_tolerance:0.1,revision_limit:2,banned_phrases:['TODO']},sources:[{id:'S1-1'}]},count=Math.ceil(target/100),tasks=[];
+  for(let index=0;index<count;index++)tasks.push((await evaluate('writer_task',{item:{context,index,parts:[],attempt:0,draft:'',issues:[]}}))[0].task);
+  assert.equal(tasks.reduce((n,t)=>n+t.target,0),target);assert.equal(tasks.reduce((n,t)=>n+t.min,0),Math.floor(target*0.9));assert.equal(tasks.reduce((n,t)=>n+t.max,0),Math.ceil(target*1.1));assert(tasks.every(t=>t.target<=100));
+ }
+ const context={section:{word_count:160},settings:{word_tolerance:0.1,revision_limit:2,banned_phrases:['TODO']},sources:[{id:'S1-1'}]};
+ const p=(await evaluate('writer_task',{item:{context,index:0,parts:[],attempt:0,draft:'',issues:[]}}))[0];
+ const text=Array(p.task.target).fill('Supported').join(' ');
+ const retry=(await evaluate('draft_packet',{item:{text},nodes:{writer_task:p}}))[0];
+ assert.equal(retry.index,0);assert.equal(retry.attempt,1);assert.equal(retry.parts.length,0);assert(retry.issues.some(i=>i.code==='citations-missing'));
+ const held=(await evaluate('draft_packet',{item:{text},nodes:{writer_task:retry}}))[0];
+ assert.equal(held.index,1);assert.equal(held.paragraph_checks[0].valid,false);assert.equal(held.artifact,text);
+ const last=(await evaluate('writer_task',{item:held}))[0];
+ const assembled=(await evaluate('draft_packet',{item:{text:text+' [S1-1]'},nodes:{writer_task:last}}))[0];
+ assert.equal(Quality.wordCount(assembled.artifact),160);assert.equal(assembled.paragraph_checks.length,2);
+ const check=node('section_review_checks').config,scope={item:assembled};
+ const checked=Quality.inspect(await V.resolve(check.value,scope,signal),await V.resolve(check.rules,scope,signal));
+ assert.equal(checked.valid,false);assert(checked.issues.some(i=>i.location==='paragraphsValid'),'A good overall word count and one citation cannot hide a failed paragraph');
 });
 
 test("outline and extras revisions regenerate small parts and recheck their assembled schemas", async t=>{

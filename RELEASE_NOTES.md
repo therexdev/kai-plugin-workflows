@@ -1,3 +1,12 @@
+# Workflows 0.3.23
+
+- Preserve every distinct review finding when a model reuses an issue ID. Previously, two different corrections with the same ID could collapse to the last one, leaving an earlier unsupported claim out of the revision request.
+- Apply this correction consistently to outline, section and extras review. Only identical findings are deduplicated; the original review history remains intact.
+- Keep scoped paragraph revisions when the requested corrections can still fit the configured word-count tolerance. A small difference from the exact target no longer triggers an unnecessary full-section rewrite.
+- Regression coverage verifies that both affected paragraphs are selected for revision while unaffected paragraphs remain unchanged.
+
+Update Workflows and import the updated AIO researched-article template. Existing workflows and run history are preserved. This fixes lost revision instructions; model accuracy and source review still require verification.
+
 # Workflows 0.3.22
 
 - Revise only the outline requirements identified by required review findings, preserving other headings and requirements. Advisory suggestions no longer become mandatory additions.

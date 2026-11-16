@@ -323,7 +323,7 @@ test('length revisions get one explicit rewrite instruction and retain the factu
  const issue={id:'words',severity:'error',code:'words',message:'Outside range',actual:203,min:144,max:176};
  const state={artifact:'Draft',context:{section:{word_count:160}},cycle:0,limit:2,history:[],checks:{valid:false,issues:[issue],metrics:[{type:'words',actual:203,min:144,max:176}]}};
  const output=(await V.evaluate(judge.config.source,{item:{json:{verdict:'CHANGE_REQUEST',items:[{id:'words',severity:'error',location:'$',evidence:'203 words',fix:'Write 144–176 words.'}],summary:''}},nodes:{section_review_checks:state}},signal,false))[0];
- assert.equal(output.prior.length,1);assert.equal(output.prior[0].fix,'Write 144–176 words.');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/Remove about 43 words/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
+ assert.equal(output.prior.filter(i=>i.fix==='Write 144–176 words.').length,1);assert.ok(output.prior.some(i=>i.evidence===issue.message&&i.severity==='error'),'The original mechanical finding must not be overwritten by a model finding with the same ID');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/Remove about 43 words/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
  assert.equal(output.needsRevision,true);assert.equal(output.status,'Needs review');
  const revise=graph.nodes.find(n=>n.id==='section_review_revise');assert.equal(revise.type,'code');
  assert.ok(graph.edges.some(e=>e.from==='section_review_ready'&&e.to==='section_review_facts'));

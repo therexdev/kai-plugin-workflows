@@ -2,6 +2,34 @@
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),{fixture}=require("./helper"),{createInference}=require("../plugin/service/workflow-inference"),{CompanionStore}=require("../plugin/service/companion-store"),{CompanionWorkflows}=require("../plugin/service/companion-workflows"),Transfer=require("../plugin/service/workflow-transfer");
 const source=fs.readFileSync(path.join(__dirname,"../examples/aio-article.workflow.json"),"utf8");
 const lookup=async()=>[{address:"8.8.8.8",family:4}];
+test('distinct findings with reused model IDs all reach the required revisions',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
+ const first={id:'S2-1',severity:'error',location:'paragraph 2',evidence:'Local knowledge guarantees success.',fix:'Remove the unsupported guarantee.'};
+ const second={...first,location:'paragraph 3',evidence:'All fees are fixed.',fix:'Remove the unsupported fee claim.'};
+ const advisory={...first,severity:'warning',fix:'Consider shortening this sentence.'};
+ for(const stage of ['outline_review','section_review','extras_review']){
+  const packet={artifact:'Saved artifact',context:{section:{word_count:160}},cycle:0,limit:2,checks:{valid:true,issues:[],metrics:[{type:'words',actual:160,min:144,max:176}]},history:[]};
+  const item={json:{verdict:'CHANGE_REQUEST',items:[first,second,advisory,{...first}],summary:'Two distinct claims require correction.'}};
+  const result=(await V.evaluate(graph.nodes.find(n=>n.id===stage+'_judge').config.source,{item,nodes:{[stage+'_checks']:packet}},signal,false))[0];
+  assert.deepEqual(result.prior,[first,second,advisory],stage);
+  assert.equal(result.status,'Needs review');assert.equal(result.needsRevision,true);
+  assert.deepEqual(result.history[0].issues,[first,second,advisory,first]);
+ }
+ const words=Array.from({length:80},(_,i)=>'word'+i).join(' '),artifact=Array.from({length:4},()=>words+' [S2-1]').join('\n\n');
+ const context={section:{word_count:320},settings:{word_tolerance:.1},sources:[{id:'S2-1'}]};
+ const revised=(await V.evaluate(graph.nodes.find(n=>n.id==='section_review_revise').config.source,{item:{artifact,context,prior:[first,second],cycle:0,limit:2,history:[]}},signal,false))[0];
+ assert.deepEqual(revised.tasks,[1,2]);assert.equal(revised.parts[0].text,artifact.split('\n\n')[0]);assert.equal(revised.parts[3].text,artifact.split('\n\n')[3]);
+});
+test('scoped revisions use the allowed word range before rebuilding unchanged paragraphs',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),signal=new AbortController().signal;
+ const paragraphs=[41,130,110,56].map(n=>Array.from({length:n},(_,i)=>'word'+i).join(' ')+' [S2-1]');
+ const item={artifact:paragraphs.join('\n\n'),context:{section:{word_count:344},settings:{word_tolerance:.1},sources:[{id:'S2-1'}]},prior:[2,3].map(n=>({id:'same-id',severity:'error',location:'paragraph '+n,evidence:'Claim '+n,fix:'Remove the unsupported claim.'})),cycle:0,limit:2,history:[]};
+ const revise=async value=>(await V.evaluate(graph.nodes.find(n=>n.id==='section_review_revise').config.source,{item:value},signal,false))[0];
+ const result=await revise(item);assert.deepEqual(result.tasks,[1,2]);
+ assert.equal(result.parts[0].text,paragraphs[0]);assert.equal(result.parts[3].text,paragraphs[3]);
+ const strict=await revise({...item,context:{...item.context,settings:{word_tolerance:0}}});
+ assert.deepEqual(strict.tasks,[0,1,2,3]);assert.deepEqual(strict.parts,[]);
+});
 test('concise model context preserves complete evidence, conditions and requirements',async()=>{
  const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values');
  const passage='This service cannot provide legal advice.\n- It cannot change court decisions. '+ 'Complete evidence. '.repeat(120);
@@ -295,7 +323,7 @@ test('length revisions get one explicit rewrite instruction and retain the factu
  const issue={id:'words',severity:'error',code:'words',message:'Outside range',actual:203,min:144,max:176};
  const state={artifact:'Draft',context:{section:{word_count:160}},cycle:0,limit:2,history:[],checks:{valid:false,issues:[issue],metrics:[{type:'words',actual:203,min:144,max:176}]}};
  const output=(await V.evaluate(judge.config.source,{item:{json:{verdict:'CHANGE_REQUEST',items:[{id:'words',severity:'error',location:'$',evidence:'203 words',fix:'Write 144–176 words.'}],summary:''}},nodes:{section_review_checks:state}},signal,false))[0];
- assert.equal(output.prior.length,1);assert.equal(output.prior[0].fix,'Write 144–176 words.');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/Remove about 43 words/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
+ assert.equal(output.prior.filter(i=>i.fix==='Write 144–176 words.').length,1);assert.ok(output.prior.some(i=>i.evidence===issue.message&&i.severity==='error'),'The original mechanical finding must not be overwritten by a model finding with the same ID');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/Remove about 43 words/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
  assert.equal(output.needsRevision,true);assert.equal(output.status,'Needs review');
  const revise=graph.nodes.find(n=>n.id==='section_review_revise');assert.equal(revise.type,'code');
  assert.ok(graph.edges.some(e=>e.from==='section_review_ready'&&e.to==='section_review_facts'));

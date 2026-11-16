@@ -1,3 +1,14 @@
+# Workflows 0.3.22
+
+- Revise only the outline requirements identified by required review findings, preserving other headings and requirements. Advisory suggestions no longer become mandatory additions.
+- Draft sections in short paragraphs with source-citation checks and word budgets calculated from actual saved text.
+- Apply section revisions to identified paragraphs and preserve unaffected prose. Unlocated findings still require rebuilding the section; all revisions pass through the same bounded writer and factual checks.
+- Keep failed paragraphs, original model replies, and review history. Overall word counts and citation checks remain required; unresolved content stays Needs review.
+- Normalize explicit bare source attributions without inventing or accepting unknown source IDs.
+- Preserve every quality rule when editing the imported template in the native UI.
+
+Update Workflows and import the new AIO researched-article template to use these changes. Existing customized workflows and run history are preserved. Requires Core 0.7.28 or later. Model availability and generated content quality still affect runs; this update does not guarantee that a model will pass the configured checks.
+
 # Workflows 0.3.21
 
 - Reduce repeated AIO prompt context while preserving complete source passages, titles, quotations, client facts and section requirements.

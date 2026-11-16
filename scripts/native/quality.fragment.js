@@ -16,13 +16,15 @@
     await appEval(id,'document.querySelector("[data-node=section_review_checks]").click();true');
     const checkFields=await appEval(id,'({field:document.querySelector("[data-field=\\\"config.rules.2.sources\\\"]")?.value,onFailure:document.querySelector("[data-field=\\\"config.onFailure\\\"]")?.value})');
     assert.equal(checkFields.field,'=item.context.sources');assert.equal(checkFields.onFailure,'report');
+    const expectedRules=expected.nodes.find(n=>n.id==='section_review_checks').config.rules;
+    assert.equal(await appEval(id,'document.querySelectorAll("[data-wf=qualityRemove]").length'),expectedRules.length);
     await appEval(id,'document.querySelector("[data-wf=qualityAdd]").click();true');
-    assert.equal(await appEval(id,'!!document.querySelector("[data-field=\\\"config.rules.4.type\\\"]")'),true);
-    await appEval(id,'document.querySelectorAll("[data-wf=qualityRemove]")[4].click();document.querySelector("[data-node=writer]").click();true');
+    assert.equal(await appEval(id,'document.querySelectorAll("[data-wf=qualityRemove]").length'),expectedRules.length+1);
+    await appEval(id,'document.querySelectorAll("[data-wf=qualityRemove]")[document.querySelectorAll("[data-wf=qualityRemove]").length-1].click();document.querySelector("[data-node=writer]").click();true');
     assert.equal(await appEval(id,'document.querySelector("[data-field=\\\"config.continuationMode\\\"]").value'),'overlap');
     await appEval(id,'document.querySelector("[data-wf=save]").click();true');
     await until(async()=>{const notice=await appEval(id,'document.querySelector(".wf-notice")?.textContent');if(notice && !notice.includes("Saving") && !notice.includes("Workflow saved"))throw Error("Quality workflow save: "+notice);return notice?.includes("Workflow saved");},"Quality workflow save failed");
     const state=await appEval(id,'window.kai.call("workflows.status",{})');
-    assert.equal(state.workflows.find(w=>w.name==='AIO researched article · reviewed').graph.nodes.find(n=>n.id==='section_review_checks').config.rules.length,4);
+    assert.deepEqual(state.workflows.find(w=>w.name==='AIO researched article · reviewed').graph.nodes.find(n=>n.id==='section_review_checks').config.rules,expectedRules);
     const file=path.join(output,'workflow-aio-quality.png');await application.evaluate((_electron,{id,file})=>global.__foundationCapture(file,id),{id,file});report.screenshots.push(file);
   });

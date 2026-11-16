@@ -195,7 +195,7 @@ for(const stuck of [false,true])test(stuck?"bounded reviews preserve unresolved 
  assert.equal(calls.filter(s=>s==="AIO_OUTLINE").length,sections.length+1);assert.equal(calls.filter(s=>s==="AIO_EXTRAS").length,stuck?0:7);
  assert.equal(result.counts.length,sections.length);assert.equal(result.counts.reduce((s,x)=>s+x.target,0),stuck?200:2000);
  assert.equal(result.status,stuck?"Needs review":"Passed configured checks");
- assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVISE").length,sections.length*(stuck?2:0));
+ assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVISE").length,0,"Revisions use the same bounded paragraph writer");
  assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVIEW").length,sections.length*(stuck?0:1));
  assert.deepEqual(result.visibleFAQ,(result.schema?.mainEntity||[]).map(q=>({question:q.name,answer:q.acceptedAnswer.text})));
  if(stuck){assert.equal(result.schema,null);assert.equal(result.extras.withheld,true);assert.equal(calls.some(s=>s.startsWith("EXTRAS_REVIEW")),false);}
@@ -222,9 +222,7 @@ test('explicit bare source attributions are formatted without inventing evidence
  assert.equal(packet.artifact,expected);
  const checks=Quality.inspect(packet.artifact,[{type:'citations',sources:evidence.sources,min:1}]);
  assert.equal(checks.valid,false);assert(checks.issues.some(i=>i.code==='citations-unknown'));
- const state={artifact:expected,context:{sources:evidence.sources},cycle:0,limit:2,prior:[],history:[],revisionMode:'replace'};
- const kept=(await V.evaluate(graph.nodes.find(n=>n.id==='section_review_keep').config.source,{item:{text},nodes:{section_review_judge:state}},new AbortController().signal,false))[0];
- assert.equal(kept.artifact,expected);assert.equal(kept.reviewed,false,'Formatting still requires the normal factual and mechanical recheck');
+ assert.equal(packet.reviewed,false,'Formatting still requires the normal factual and mechanical recheck');
 });
 
 test('paragraph budgets preserve the section range and a failed paragraph cannot pass through aggregation',async()=>{
@@ -232,8 +230,10 @@ test('paragraph budgets preserve the section range and a failed paragraph cannot
  const node=id=>graph.nodes.find(n=>n.id===id),evaluate=(id,scope)=>V.evaluate(node(id).config.source,scope,signal,false);
  for(const target of [16,64,120,160,344,378]){
   const context={section:{word_count:target},settings:{word_tolerance:0.1,revision_limit:2,banned_phrases:['TODO']},sources:[{id:'S1-1'}]},count=Math.ceil(target/100),tasks=[];
-  for(let index=0;index<count;index++)tasks.push((await evaluate('writer_task',{item:{context,index,parts:[],attempt:0,draft:'',issues:[]}}))[0].task);
-  assert.equal(tasks.reduce((n,t)=>n+t.target,0),target);assert.equal(tasks.reduce((n,t)=>n+t.min,0),Math.floor(target*0.9));assert.equal(tasks.reduce((n,t)=>n+t.max,0),Math.ceil(target*1.1));assert(tasks.every(t=>t.target<=100));
+  const parts=[];
+  for(let index=0;index<count;index++){const task=(await evaluate('writer_task',{item:{context,index,parts,attempt:0,draft:'',issues:[]}}))[0].task;tasks.push(task);parts.push({text:'Saved paragraph',checks:{words:task.target}});}
+  assert.equal(tasks.reduce((n,t)=>n+t.target,0),target);assert(tasks.every(t=>t.target<=120));
+  assert.equal(tasks.at(-1).min+parts.slice(0,-1).reduce((n,p)=>n+p.checks.words,0),Math.floor(target*0.9));
  }
  const context={section:{word_count:160},settings:{word_tolerance:0.1,revision_limit:2,banned_phrases:['TODO']},sources:[{id:'S1-1'}]};
  const p=(await evaluate('writer_task',{item:{context,index:0,parts:[],attempt:0,draft:'',issues:[]}}))[0];
@@ -297,7 +297,7 @@ test('length revisions get one explicit rewrite instruction and retain the factu
  const output=(await V.evaluate(judge.config.source,{item:{json:{verdict:'CHANGE_REQUEST',items:[{id:'words',severity:'error',location:'$',evidence:'203 words',fix:'Write 144–176 words.'}],summary:''}},nodes:{section_review_checks:state}},signal,false))[0];
  assert.equal(output.prior.length,1);assert.equal(output.prior[0].fix,'Write 144–176 words.');assert.match(output.revisionInstruction,/SHORTEN.*203.*144–176/);assert.match(output.revisionInstruction,/Remove about 43 words/);assert.match(output.revisionInstruction,/changing citations alone does not fix length/);
  assert.equal(output.needsRevision,true);assert.equal(output.status,'Needs review');
- const revise=graph.nodes.find(n=>n.id==='section_review_revise');assert.match(revise.config.prompt,/Mandatory revision: \{\{item.revisionInstruction\}\}/);
+ const revise=graph.nodes.find(n=>n.id==='section_review_revise');assert.equal(revise.type,'code');
  assert.ok(graph.edges.some(e=>e.from==='section_review_ready'&&e.to==='section_review_facts'));
 });
 
@@ -314,7 +314,7 @@ test('source warnings block approval and subsequent content edits keep the word 
 
 test('a short uncited section receives factual and mechanical fixes in its first revision',async t=>{
  const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),full=Transfer.parseDocument(source),M=require('../plugin/workflow-model');
- const nodes=full.graph.nodes.filter(n=>n.id.startsWith('section_review')),ids=new Set(nodes.map(n=>n.id)),calls=[];
+ const nodes=full.graph.nodes.filter(n=>n.id.startsWith('section_review')||['writer_parts','writer_task','writer','draft_packet'].includes(n.id)),ids=new Set(nodes.map(n=>n.id)),calls=[];
  nodes.push(M.node('trigger','start'),M.node('output','out',undefined,{text:'{{previous}}'}));
  const edges=full.graph.edges.filter(e=>ids.has(e.from)&&ids.has(e.to));edges.push(M.edge('start','section_review'),M.edge('section_review','out','done'));
  let revised=false;
@@ -322,9 +322,10 @@ test('a short uncited section receives factual and mechanical fixes in its first
  f.api.wallet={authorize:async()=>{},complete:async request=>{
   const p=request.messages[1].content,stage=p.match(/STAGE: (\w+)/)[1];calls.push(stage);let content;
   if(stage==='SECTION_REVIEW_FACTS')content=JSON.stringify({verdict:revised?'PASS':'CHANGE_REQUEST',items:revised?[]:[{id:'unsupported-assurance',severity:'error',location:'Sentence 1',evidence:'Listing guarantees success.',fix:'Remove the unsupported guarantee.'}],summary:'The directory lists participating providers.'});
-  else if(stage==='SECTION_REVIEW_REVISE'){
-   assert.match(p,/Remove the unsupported guarantee/);assert.match(p,/144–176/);assert.match(p,/known source citation/);assert.match(p,/Artifact: \nContext:/,'Do not feed the rejected prose back as the revision basis');
-   revised=true;content=Array(160).fill('Supported').join(' ')+' [S1-1]';
+  else if(stage==='AIO_WRITE'){
+   assert.match(p,/Remove the unsupported guarantee/);assert.doesNotMatch(p,/Preserved paragraphs[^\n]*Listing guarantees success/,'Rejected prose must not be preserved');
+   const task=JSON.parse(p.match(/Paragraph budget: (\{.+?\})\./)[1]);
+   revised=true;content=Array(task.target).fill('Supported').join(' ')+' [S1-1]';
   }else {assert.equal(stage,'SECTION_REVIEW_REVIEW');content=JSON.stringify({verdict:'PASS',items:[],summary:'Participating providers are listed. [S1-1]'});}
   return {choices:[{message:{content},finish_reason:'stop'}],usage:{completion_tokens:150},koin:{state:'charged'}};
  }};
@@ -334,7 +335,7 @@ test('a short uncited section receives factual and mechanical fixes in its first
  let run;for(let i=0;i<6000;i++){run=engine.get(id);if(run.status!=='running')break;await new Promise(r=>setTimeout(r,5));}
  assert.equal(run.status,'completed',run.error);const result=run.frames.root.states.section_review.outputs.done[0];
  assert.equal(result.status,'Passed checks');assert.equal(result.cycle,1);
- assert.deepEqual(calls,['SECTION_REVIEW_FACTS','SECTION_REVIEW_REVISE','SECTION_REVIEW_FACTS','SECTION_REVIEW_REVIEW']);
+ assert.deepEqual(calls,['SECTION_REVIEW_FACTS','AIO_WRITE','AIO_WRITE','SECTION_REVIEW_FACTS','SECTION_REVIEW_REVIEW']);
  assert.ok(result.history[0].issues.some(i=>i.code==='words'));assert.ok(result.history[0].issues.some(i=>i.code==='citations-missing'));assert.ok(result.history[0].issues.some(i=>i.id==='unsupported-assurance'));
 });
 
@@ -362,13 +363,32 @@ test('long audit evidence remains valid when the verdict agrees with its finding
 test('a short section receives only the missing paragraph and the combined draft is rechecked',async()=>{
  const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),Q=require('../plugin/workflow-quality'),signal=new AbortController().signal;
  const issue={id:'check-2-1',code:'words',severity:'error',location:'$',message:'Outside range',actual:299,min:309,max:379};
- const packet={artifact:Array(299).fill('Existing').join(' ')+' [S2-1]',context:{section:{word_count:344}},cycle:0,limit:2,history:[],checks:{valid:false,issues:[issue],metrics:[{type:'words',actual:299,min:309,max:379}]}};
+ const packet={artifact:Array(299).fill('Existing').join(' ')+' [S2-1]',context:{section:{word_count:344},settings:{word_tolerance:0.1},sources:[{id:'S2-1'}]},cycle:0,limit:2,history:[],checks:{valid:false,issues:[issue],metrics:[{type:'words',actual:299,min:309,max:379}]}};
  const json={verdict:'CHANGE_REQUEST',items:[{id:issue.id,severity:'error',location:'$',evidence:issue.message,fix:'Write 309–379 words.'}],summary:''};
  const node=id=>graph.nodes.find(n=>n.id===id);
  const judged=(await V.evaluate(node('section_review_judge').config.source,{item:{json},nodes:{section_review_checks:packet}},signal,false))[0];
  assert.equal(judged.revisionMode,'append');assert.match(judged.revisionInstruction,/45 words \(allowed 10–80\)/);
- const revised=(await V.evaluate(node('section_review_keep').config.source,{item:{text:Array(45).fill('Additional').join(' ')+' [S2-1]'},nodes:{section_review_judge:judged}},signal,false))[0];
+ const prepared=(await V.evaluate(node('section_review_revise').config.source,{item:judged},signal,false))[0];
+ assert.equal(prepared.parts[0].text,packet.artifact);assert.deepEqual(prepared.tasks,[1]);
+ const task=(await V.evaluate(node('writer_task').config.source,{item:prepared},signal,false))[0];
+ const revised=(await V.evaluate(node('draft_packet').config.source,{item:{text:Array(45).fill('Additional').join(' ')+' [S2-1]'},nodes:{writer_task:task}},signal,false))[0];
  assert.ok(revised.artifact.startsWith(packet.artifact+'\n\n'));assert.equal(Q.wordCount(revised.artifact),344);assert.equal(revised.reviewed,false);
  packet.checks.issues.push({...issue,id:'check-4-2',code:'forbidden'});
  const mixed=(await V.evaluate(node('section_review_judge').config.source,{item:{json},nodes:{section_review_checks:packet}},signal,false))[0];assert.equal(mixed.revisionMode,'replace');
+});
+
+test('paragraph revision preserves unaffected text and budgets from actual saved words',async()=>{
+ const graph=Transfer.parseDocument(source).graph,V=require('../plugin/service/workflow-values'),Q=require('../plugin/workflow-quality'),signal=new AbortController().signal;
+ const evaluate=async(id,scope)=>(await V.evaluate(graph.nodes.find(n=>n.id===id).config.source,scope,signal,false))[0];
+ const first=Array(91).fill('Preserved').join(' ')+' [S1-1]',second=Array(69).fill('Incorrect').join(' ')+' [S1-1]';
+ const context={section:{word_count:160,points:['First need','Second need']},settings:{word_tolerance:0.1,revision_limit:2},sources:[{id:'S1-1'}]};
+ const packet={artifact:first+'\n\n'+second,context,cycle:0,limit:2,history:[{issues:['Original finding retained']}],prior:[{id:'scope',severity:'error',location:'Paragraph 2',evidence:'Incorrect',fix:'Remove the unsupported implication.'}],revisionMode:'replace'};
+ const prepared=await evaluate('section_review_revise',{item:packet});assert.deepEqual(prepared.tasks,[1]);assert.equal(prepared.parts[0].text,first);assert.equal(prepared.cycle,1);
+ const task=await evaluate('writer_task',{item:prepared});assert.equal(task.task.target,69);assert.equal(task.task.min,53);assert.equal(task.task.max,85);assert.equal(task.preserved_text,first);
+ const done=await evaluate('draft_packet',{item:{text:Array(69).fill('Corrected').join(' ')+' [S1-1]'},nodes:{writer_task:task}});
+ assert.equal(done.parts[0].text,first);assert.equal(Q.wordCount(done.artifact),160);assert.deepEqual(done.history,packet.history);assert.equal(done.cycle,1);
+ const initial=await evaluate('writer_task',{item:{context,index:1,parts:[{text:first,checks:{words:91}}],attempt:0,issues:[]}});
+ assert.equal(initial.task.target,69,'The second paragraph uses the actual first paragraph count, not another fixed 80');
+ const broad=await evaluate('section_review_revise',{item:{...packet,prior:[{...packet.prior[0],location:'Ambiguous',evidence:'Not found in either paragraph'}]}});
+ assert.deepEqual(broad.tasks,[0,1]);assert.deepEqual(broad.parts,[],'Ambiguous corrections must not silently leave a rejected paragraph unchanged');
 });

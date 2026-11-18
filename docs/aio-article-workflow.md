@@ -1,6 +1,6 @@
 # AIO reviewed article
 
-Use Workflows 0.3.24 or later with this two-pass workflow. The updated runner allows up to 2,000 steps and 500 loop frames so longer articles can apply both revisions without hitting the previous 500-step or 150-frame cap. Requires Core 0.7.28 or later. Open **Templates → AIO researched article**, or import `examples/aio-article.workflow.json`. Import creates a new draft and preserves your existing workflows and run history. Updating the plugin alone does not replace a saved/customized graph.
+Use Workflows 0.3.24 or later with this two-pass workflow. The updated runner allows up to 2,000 steps and 500 loop frames and 96 MB of plaintext data in its encrypted store, so longer articles can apply both revisions without hitting the previous execution or 24 MB storage caps. Storage remains bounded and uses the same format; no history is discarded to fit. Requires Core 0.7.28 or later. Open **Templates → AIO researched article**, or import `examples/aio-article.workflow.json`. Import creates a new draft and preserves your existing workflows and run history. Updating the plugin alone does not replace a saved/customized graph.
 
 Start with a topic and a body word target of 200–2400. There is no intake interview. Optional `source_urls` supplies up to ten public reference pages. Evidence retrieval still checks topic relevance and readable source passages; unavailable pages and search snippets are not verified evidence.
 

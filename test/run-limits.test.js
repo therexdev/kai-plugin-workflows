@@ -2,6 +2,8 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createClass}=require('../plugin/service/workflow-engine');
 const Model=require('../plugin/workflow-model');
+const fs=require('node:fs'),path=require('node:path'),{fixture}=require('./helper');
+const {CompanionStore}=require('../plugin/service/companion-store');
 
 test('nested runs continue beyond the old caps and stop at finite run-wide limits',()=>{
  class MemoryBase {
@@ -25,4 +27,15 @@ test('nested runs continue beyond the old caps and stop at finite run-wide limit
  engine.frame('run','last',graph,[],{}); // Reusing a saved frame remains allowed.
  assert.throws(()=>engine.frame('run','over',graph,[],{}),/500-frame limit/);
  assert.equal(Object.keys(engine.run.frames).length,500);assert(engine.run.frames.last);
+});
+
+test('the expanded encrypted history allowance stays bounded and preserves records on refusal',t=>{
+ const f=fixture(t,'kai.workflows'),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets});
+ store.change(d=>{d.runs.push({id:'preserved',status:'completed',output:'Saved result'});});
+ const file=path.join(f.root,'state.json'),before=fs.readFileSync(file);
+ assert.throws(()=>store.change(d=>{d.settings.oversized='x'.repeat(96*1024*1024);}),/exceeds 96 MB/);
+ assert.deepEqual(fs.readFileSync(file),before);
+ assert.equal(store.data.settings.oversized,undefined);
+ const reopened=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets});
+ assert.equal(reopened.locked,false);assert.equal(reopened.data.runs[0].output,'Saved result');
 });

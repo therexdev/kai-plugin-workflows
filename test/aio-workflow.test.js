@@ -193,11 +193,11 @@ test('optional outline citation toggles stay advisory without waiving factual ch
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"two-pass QA delivers a 2000-word draft and extras despite every review requesting changes":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{
  const f=fixture(t,"kai.workflows"),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),calls=[];
- // The rejection replay exercises hundreds of graph transitions. Use atomic
- // in-memory commits here, then persist and reopen the complete real store.
+ // The rejection replay exercises hundreds of graph transitions. Use an
+ // in-memory graph fixture here, then persist and reopen the complete real store.
  // The ordinary run above still encrypts and writes every transition.
  const persist=store.change.bind(store);
- if(stuck)store.change=fn=>{const next=structuredClone(store.data),result=fn(next);store.data=next;store.attach();return structuredClone(result);};
+ if(stuck)store.change=fn=>{const result=fn(store.data);store.attach();return structuredClone(result);};
  f.api.network.models=async()=>["qwen25-14b","gemma3-12b","phi-4"].map(model=>({model,available:true,maxOutput:256}));
  f.api.wallet={complete:async request=>{
   assert(Buffer.byteLength(JSON.stringify(request.messages))<=24000,"Never silently truncate a model packet");
@@ -237,6 +237,7 @@ for(const stuck of [false,true])test(stuck?"two-pass QA delivers a 2000-word dra
  assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVIEW").length,sections.length*(stuck?0:1));
  assert.deepEqual(result.visibleFAQ,(result.schema?.mainEntity||[]).map(q=>({question:q.name,answer:q.acceptedAnswer.text})));
  if(stuck){
+  assert(Buffer.byteLength(JSON.stringify(store.data))>24*1024*1024,'The complete history exceeds the former storage allowance');
   assert(r.steps.length>500,'The regression must exceed the former run cap');
   assert(Object.keys(r.frames).length>150,'Nested revisions exceed the former frame cap');
   persist(()=>{});

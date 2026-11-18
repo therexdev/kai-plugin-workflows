@@ -2,7 +2,7 @@
 
 The AIO researched-article template now runs at most two QA passes for the outline, each section and publishing extras. Each pass may request a revision; after the second revision, it saves the final edits and continues without a third model approval check. Passing reviews exit early.
 
-Unresolved outline findings no longer stop article drafting, and sections carrying warnings no longer suppress the publishing pack. Final edits and matched source quotations continue downstream; old pre-revision summaries are not reused as if they described final text. Review findings and source checks remain visible, with unreviewed final edits explicitly labeled. The final report is advisory and nothing publishes automatically.
+Unresolved outline findings no longer stop article drafting, and sections carrying warnings no longer suppress the publishing pack. Final edits and matched source quotations continue downstream; old pre-revision summaries are not reused as if they described final text. Model prompts use labeled complete-paragraph excerpts from pending drafts to keep review requests within the message limit, while the full article stays saved. Review findings and source checks remain visible, with unreviewed final edits explicitly labeled. The final report is advisory and nothing publishes automatically.
 
 Import the updated AIO researched article · reviewed template to use this policy. Use Workflows 0.3.24 for the increased run allowance of 2,000 steps and 500 loop frames; earlier versions can stop long articles at the old execution cap. Existing saved workflows retain their configuration and history. Core 0.7.28 or later is required. Provider errors and malformed model responses retain their separate bounded recovery rules.
 

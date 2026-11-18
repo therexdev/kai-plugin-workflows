@@ -1,8 +1,8 @@
 {
   "format": 1,
   "asset": "kai-plugin-workflows-0.3.24.kaiplugin",
-  "bytes": 15658375,
-  "sha256": "623b9a6c98b7c1214f286a1ce402e641f242ef715ccdb30ae0ac4f156d4ec193",
+  "bytes": 15662449,
+  "sha256": "fda87ffc09a7384a246d249bd396fb3887c7581894a494898a71635e87209718",
   "publicKey": "MCowBQYDK2VwAyEAujPt2xYcqLkorZIdmrBEa0ZlLml+yEERDhP+YtI2t5o=",
-  "signature": "ZahBigpHN8Ls/oAooUp7rzEHzJ6FU0mtW+I1mY4IDCDwsi3R7MD/0lyOJt80GYuzP4Hn8QNaHufCRE5XPPySDQ=="
+  "signature": "Q4smIJxrfYGRYItzizniz8H+DF8rZ9aTiS9st0rQjRIylwWQXnPq+EQn7gddLkhxjR5Q1TFXaO4+4tVFoU3mBw=="
 }

@@ -30,7 +30,7 @@ Code checks still measure word counts, citation IDs, required structure and forb
 5. Generate the direct answer, takeaways, FAQ, metadata and social copy from the latest section drafts or approved summaries plus matched source quotations. Unapproved drafts remain explicitly labeled. Their statements are not evidence: extras must be supported by the original quotations. Apply the bounded extras QA/revision sequence.
 6. Derive FAQ JSON-LD from the final visible FAQ, report final code checks and run one advisory cross-section review. This final report adds no revision loop and never blocks delivery on a QA verdict. Nothing publishes automatically.
 
-A section edited after the final QA contributes its actual final text, not the stale pre-revision summary. Source IDs and matched quotations remain available even when a section carries findings. When every section needs review, the workflow still creates the publishing pack and includes the review report.
+A section edited after the final QA retains its actual final text, not the stale pre-revision summary. Model context uses one complete paragraph (at most 1,200 characters) from each pending section, explicitly marked as an excerpt, alongside complete matched source quotations. The full article stays saved; these context excerpts are not a full-article audit and do not establish missing coverage. Source IDs and matched quotations remain available even when a section carries findings. When every section needs review, the workflow still creates the publishing pack and includes the review report.
 
 ## Editing and evidence
 

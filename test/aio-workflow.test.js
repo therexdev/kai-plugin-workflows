@@ -472,4 +472,11 @@ test('final edited section text and matched quotations reach extras instead of t
  assert.equal(collected.digests[0].summary,body);assert.equal(collected.digests[0].revision_unreviewed,true);assert.deepEqual(collected.digests[0].evidence,[{id:'S1-1',text:quote}]);assert.equal(collected.reviews[0].revision_unreviewed,true);
  const packet=(await V.evaluate(graph.nodes.find(n=>n.id==='aio_packet').config.source,{item:collected},signal,false))[0];
  assert.equal(packet.article[0].summary,body);assert.equal(packet.article[0].status,'Needs review');assert(!JSON.stringify(packet).includes('Obsolete'));
+ const paragraph=Array(90).fill('Final').join(' ')+' [S1-1].',later='Later complete paragraph.';
+ const contextWithDrafts={...packet,article:Array.from({length:8},(_,i)=>({...packet.article[0],heading:'Section '+i,summary:paragraph+'\n\n'+later+'\n\n'+paragraph.repeat(4)}))};
+ const prepared=(await V.evaluate(graph.nodes.find(n=>n.id==='extras_review_prompt_context').config.source,{item:{artifact:{title:'Extras'},context:contextWithDrafts}},signal,false))[0];
+ assert.equal(prepared.context.article[0].summary,contextWithDrafts.article[0].summary,'The complete final draft stays saved');
+ for(const draft of prepared.prompt_context.article){assert.equal(draft.summary,paragraph);assert.equal(draft.excerpt,true);}
+ assert.deepEqual(prepared.prompt_context.source_quotations,[{id:'S1-1',text:quote}]);
+ assert(JSON.stringify(prepared.prompt_context).length<10000,'Draft excerpts leave room for the review prompt and extras');
 });

@@ -4,7 +4,7 @@ The AIO researched-article template now runs at most two QA passes for the outli
 
 Unresolved outline findings no longer stop article drafting, and sections carrying warnings no longer suppress the publishing pack. Final edits and matched source quotations continue downstream; old pre-revision summaries are not reused as if they described final text. Review findings and source checks remain visible, with unreviewed final edits explicitly labeled. The final report is advisory and nothing publishes automatically.
 
-Import the updated AIO researched article · reviewed template to use this policy. The import also works with Workflows 0.3.23; existing saved workflows retain their configuration and history. Core 0.7.28 or later is required. Provider errors and malformed model responses retain their separate bounded recovery rules.
+Import the updated AIO researched article · reviewed template to use this policy. Use Workflows 0.3.24 for the increased run allowance of 2,000 steps and 500 loop frames; earlier versions can stop long articles at the old execution cap. Existing saved workflows retain their configuration and history. Core 0.7.28 or later is required. Provider errors and malformed model responses retain their separate bounded recovery rules.
 
 # Workflows 0.3.23
 

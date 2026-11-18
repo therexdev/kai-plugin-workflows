@@ -7,6 +7,9 @@ const V = require("./workflow-values"), { next } = require("./workflow-schedules
 const { assertPublicTarget, publicPageRequest } = require("./lib/websearch");
 const WAIT = Symbol("waiting"), live = r => ["running", "waiting", "interrupted"].includes(r.status);
 const hash = value => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+// Nested paragraph and QA loops need more than 500 logged steps. Keep finite
+// run-wide budgets in addition to each loop's own iteration limit.
+const MAX_RUN_STEPS = 2000, MAX_RUN_FRAMES = 500;
 function loopRegion(graph, loop) {
   const region = new Set(), visit = key => { if (key === loop.id || region.has(key)) return; region.add(key); graph.edges.filter(e => e.from === key).forEach(e => visit(e.to)); };
   graph.edges.filter(e => e.from === loop.id && e.port === "body").forEach(e => visit(e.to));
@@ -161,7 +164,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
   frame(key, frameId, graph, seeds, input, iteration = 0, policy = {}) {
     if (this.get(key).frames[frameId]) return;
     const p = plan(graph);
-    this.patch(key, r => { if (Object.keys(r.frames).length >= 150) throw new CompanionError("Run reached the 150-frame limit."); r.frames[frameId] = { graph, seeds, input, iteration, ...Model.modelPolicy(policy), states: Object.fromEntries(p.nodes.map(n => [n.id, { status: "pending", outputs: {}, cursor: 0, turns: [] }])), status: "running" }; });
+    this.patch(key, r => { if (Object.keys(r.frames).length >= MAX_RUN_FRAMES) throw new CompanionError(`Run reached the ${MAX_RUN_FRAMES}-frame limit.`); r.frames[frameId] = { graph, seeds, input, iteration, ...Model.modelPolicy(policy), states: Object.fromEntries(p.nodes.map(n => [n.id, { status: "pending", outputs: {}, cursor: 0, turns: [] }])), status: "running" }; });
   }
   state(key, frameId, nodeId) { return this.get(key).frames[frameId].states[nodeId]; }
   patchNode(key, frameId, nodeId, fn) { this.patch(key, r => fn(r.frames[frameId].states[nodeId], r)); }
@@ -207,7 +210,7 @@ function createClass(Base) { return class GraphWorkflows extends Base {
     return false;
   }
   logStart(key, token, frameId, n, values) {
-    this.patch(key, r => { if (r.steps.length >= 500) throw new CompanionError("Run reached the 500-step limit."); r.steps.push({ token, nodeId: n.id, frameId, label: n.label, type: n.type, status: "running", input: copy(values), at: Date.now(), attempts: 1 }); r.inFlight = { tokens: r.steps.filter(s => s.status === "running").map(s => s.token) }; r.index = r.steps.length - 1; });
+    this.patch(key, r => { if (r.steps.length >= MAX_RUN_STEPS) throw new CompanionError(`Run reached the ${MAX_RUN_STEPS}-step limit.`); r.steps.push({ token, nodeId: n.id, frameId, label: n.label, type: n.type, status: "running", input: copy(values), at: Date.now(), attempts: 1 }); r.inFlight = { tokens: r.steps.filter(s => s.status === "running").map(s => s.token) }; r.index = r.steps.length - 1; });
   }
   logFinish(key, token, output, status = "completed", error) {
     this.patch(key, r => { const step = r.steps.find(s => s.token === token && s.status === "running"); if (step) { step.status = status; step.output = V.string(output).slice(0, 32000); step.items = copy(output); step.finishedAt = Date.now(); step.durationMs = step.finishedAt - step.at; if (error) step.error = error; } const busy = r.steps.filter(s => s.status === "running"); r.inFlight = busy.length ? { tokens: busy.map(s => s.token) } : null; r.approvals = r.approvals.filter(a => a.token !== token); r.pending = r.approvals.find(a => !a.approved)?.detail || null; });

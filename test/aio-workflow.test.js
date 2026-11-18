@@ -193,11 +193,11 @@ test('optional outline citation toggles stay advisory without waiving factual ch
 function web(url){if(url.includes("duckduckgo.com"))return new Response("<html></html>");if(url.includes("bing.com"))return new Response('<rss><channel><item><title>AI evidence</title><link>https://evidence.example/report</link><description>AI training evidence</description></item></channel></rss>');return new Response('<html><title>AI evidence</title><p>AI training learns from data. '+"Examples illustrate how AI learns. ".repeat(80)+"</p></html>",{headers:{"content-type":"text/html"}});}
 for(const stuck of [false,true])test(stuck?"two-pass QA delivers a 2000-word draft and extras despite every review requesting changes":"AIO workflow repairs missing citations, rechecks and derives schema from final FAQ",async t=>{
  const f=fixture(t,"kai.workflows"),store=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets}),calls=[];
- // The rejection replay exercises hundreds of graph transitions. Use an
- // in-memory graph fixture here, then persist and reopen the complete real store.
- // The ordinary run above still encrypts and writes every transition.
+ // Full-article graph fixtures exercise hundreds of transitions in memory,
+ // then persist and reopen the complete real encrypted store. Smaller engine
+ // regressions and native integration still persist each transition.
  const persist=store.change.bind(store);
- if(stuck)store.change=fn=>{const result=fn(store.data);store.attach();return structuredClone(result);};
+ store.change=fn=>{const result=fn(store.data);store.attach();return structuredClone(result);};
  f.api.network.models=async()=>["qwen25-14b","gemma3-12b","phi-4"].map(model=>({model,available:true,maxOutput:256}));
  f.api.wallet={complete:async request=>{
   assert(Buffer.byteLength(JSON.stringify(request.messages))<=24000,"Never silently truncate a model packet");
@@ -236,15 +236,15 @@ for(const stuck of [false,true])test(stuck?"two-pass QA delivers a 2000-word dra
  assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVISE").length,0,"Revisions use the same bounded paragraph writer");
  assert.equal(calls.filter(s=>s==="SECTION_REVIEW_REVIEW").length,sections.length*(stuck?0:1));
  assert.deepEqual(result.visibleFAQ,(result.schema?.mainEntity||[]).map(q=>({question:q.name,answer:q.acceptedAnswer.text})));
+ persist(()=>{});
+ const reopened=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets});
+ assert.equal(reopened.locked,false,reopened.loadError);
+ assert.deepEqual(reopened.data.runs[0],r,'All completed outputs and review history survive reopening');
+ t.diagnostic(`${r.steps.length} steps, ${Object.keys(r.frames).length} frames; complete run persisted and reopened`);
  if(stuck){
   assert(Buffer.byteLength(JSON.stringify(store.data))>24*1024*1024,'The complete history exceeds the former storage allowance');
   assert(r.steps.length>500,'The regression must exceed the former run cap');
   assert(Object.keys(r.frames).length>150,'Nested revisions exceed the former frame cap');
-  persist(()=>{});
-  const reopened=new CompanionStore({dataDir:f.root,safeStorage:f.api.secrets});
-  assert.equal(reopened.locked,false,reopened.loadError);
-  assert.deepEqual(reopened.data.runs[0],r,'All completed outputs and review history survive reopening');
-  t.diagnostic(`${r.steps.length} steps, ${Object.keys(r.frames).length} frames; complete run persisted and reopened`);
   assert(result.schema);assert.notEqual(result.extras.withheld,true);
   for(const [stage,count] of [['OUTLINE_REVIEW_FACTS',2],['SECTION_REVIEW_FACTS',sections.length*2],['EXTRAS_REVIEW_FACTS',2]])assert.equal(calls.filter(s=>s===stage).length,count,stage);
   for(const review of result.reviews){assert.equal(review.history.length,2,review.stage);assert.equal(review.revision_unreviewed,true,review.stage);assert.equal(review.status,'Needs review');}
